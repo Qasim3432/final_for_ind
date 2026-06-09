@@ -35,7 +35,7 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF2A9D8F)),
+            .background(Color(0xFF2C3E50)),
         contentAlignment = Alignment.Center
     ) {
         Box(modifier = Modifier.width(320.dp)) {

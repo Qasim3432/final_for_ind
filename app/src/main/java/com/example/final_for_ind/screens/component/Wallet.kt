@@ -6,7 +6,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
-import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Games
 import androidx.compose.material.icons.filled.SportsEsports
@@ -28,7 +27,7 @@ import kotlinx.coroutines.launch
 @Preview
 @Composable
 fun DashboardScreen() {
-    var balance by remember { mutableStateOf(2900) }
+    var balance by remember { mutableStateOf(0) }
     var amountInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     var snackbarHostState by remember { mutableStateOf(SnackbarHostState()) }
@@ -103,7 +102,7 @@ fun DashboardScreen() {
                     )
 
                     // Add Coins Section
-                    SectionTitle("Add Balance (Test)")
+                    SectionTitle("Add Balance")
 
                     OutlinedTextField(
                         value = amountInput,
@@ -130,7 +129,7 @@ fun DashboardScreen() {
                     Spacer(Modifier.height(8.dp))
 
                     GradientButton(
-                        text = "Add Coins",
+                        text = "Add BTC",
                         icon = Icons.Default.Games,
                         gradient = Brush.horizontalGradient(listOf(Color(0xFF2980B9), Color(0xFF3498DB))),
                         onClick = {
