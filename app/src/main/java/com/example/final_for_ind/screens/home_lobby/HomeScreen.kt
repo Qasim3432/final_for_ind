@@ -52,7 +52,7 @@ fun HomeScreen() {
         bottomBar = { BottomNavBar() }
     ) { innerPadding ->
         Box(
-            modifier = Modifier
+            modifier = Modifier.background(Color(0xFF2C3E50))
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
