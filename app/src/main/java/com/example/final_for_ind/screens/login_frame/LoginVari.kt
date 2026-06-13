@@ -1,6 +1,5 @@
 package com.example.final_for_ind.screens.login_frame
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,16 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,85 +24,85 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.final_for_ind.R
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun LoginVari() {
-
     var OTP by remember { mutableStateOf("") }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    val gradient = Brush.verticalGradient(
+        colors = listOf(Color(0xFF2C3E50), Color(0xFF1A252F))
+    )
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(gradient),
+        contentAlignment = Alignment.Center
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.9f)
                 .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                contentColor = Color.White
-            ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = 6.dp
-            )
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF34495E)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally, // ✅ Added this line
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                Text(
+                    text = "Enter OTP",
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
 
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .background(
-                            color = Color.LightGray,
-                            shape = RoundedCornerShape(1.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(painter = painterResource(R.drawable.erft),
-                        "Image")
-
-
-                }
-                Spacer(modifier = Modifier.height(70.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
                 OutlinedTextField(
                     value = OTP,
-                    onValueChange = {OTP = it},
+                    onValueChange = { OTP = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(text = "Enter OTP") },
-                    colors = TextFieldDefaults.colors(
+                    label = { Text("Enter OTP", color = Color.Gray) },
+                    placeholder = { Text("6-digit code", color = Color.Gray.copy(alpha = 0.5f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                        focusedBorderColor = Color(0xFF9B59B6),
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedLabelColor = Color(0xFF9B59B6),
+                        cursorColor = Color.Black
                     ),
-                    textStyle = LocalTextStyle.current.copy(
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    ),
-                    singleLine = true
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center
+                    )
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
                     onClick = { },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Green,
+                        containerColor = Color(0xFF9B59B6),
                         contentColor = Color.White
                     ),
                     modifier = Modifier
@@ -121,7 +118,5 @@ fun LoginVari() {
                 }
             }
         }
-
     }
-
 }

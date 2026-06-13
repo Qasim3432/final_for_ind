@@ -63,26 +63,7 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                         letterSpacing = 1.sp
                     )
 
-                    Spacer(Modifier.height(20.dp))
 
-                    // Variation selection
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(32.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        VariationOption(
-                            icon = Icons.Default.Star,
-                            label = "CLASSIC",
-                            isSelected = selectedVariation == "CLASSIC",
-                            onClick = { selectedVariation = "CLASSIC" }
-                        )
-                        VariationOption(
-                            icon = Icons.Default.Flight,
-                            label = "QUICK",
-                            isSelected = selectedVariation == "QUICK",
-                            onClick = { selectedVariation = "QUICK" }
-                        )
-                    }
 
                     Spacer(Modifier.height(28.dp))
 
@@ -161,7 +142,7 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
 
                     // Play button
                     Button(
-                        onClick = { onPlay(selectedVariation, betAmount) },
+                        onClick = {},
                         modifier = Modifier
                             .fillMaxWidth(0.7f)
                             .height(48.dp),
@@ -212,55 +193,4 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
         }
     }
 }
-
-@Composable
-fun VariationOption(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
-    ) {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(if (isSelected) Color(0xFFFFD700) else Color(0xFFE0E0E0))
-                .border(
-                    width = if (isSelected) 3.dp else 0.dp,
-                    color = Color(0xFFFFA500),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (isSelected) Color.White else Color.Gray,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-
-        Spacer(Modifier.height(6.dp))
-
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isSelected) Color(0xFFFFA500) else Color(0xFF999)
-        )
-
-        Text(
-            text = "①",
-            fontSize = 10.sp,
-            color = Color(0xFF999)
-        )
-    }
-}
-
-
-
 

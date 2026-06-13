@@ -1,220 +1,191 @@
 package com.example.final_for_ind.screens.home_lobby
 
-
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Color.Companion.Blue
-import androidx.compose.ui.graphics.Color.Companion.Green
-import androidx.compose.ui.graphics.Color.Companion.White
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.final_for_ind.R
 import com.example.final_for_ind.screens.component.BottomNavBar
 import com.example.final_for_ind.ui.theme.Orange
 import com.example.final_for_ind.ui.theme.Purple40
 
-
-@Preview(showBackground = true)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    coins: Int = 1250,
+    onProfileClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onGameModeClick: (String) -> Unit
+) {
+    val gradient = Brush.verticalGradient(
+        colors = listOf(Color(0xFF2C3E50), Color(0xFF1A252F))
+    )
+
     Scaffold(
-        bottomBar = { BottomNavBar() }
+        bottomBar = { BottomNavBar() },
+        containerColor = Color.Transparent
     ) { innerPadding ->
         Box(
-            modifier = Modifier.background(Color(0xFF2C3E50))
+            modifier = Modifier
                 .fillMaxSize()
+                .background(gradient)
                 .padding(innerPadding)
         ) {
-
+            // Top Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .size(60.dp)
-                        .background(
-                            color = Color.LightGray,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                )
-                {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "person",
-                        modifier = Modifier.size(40.dp),
-                        tint = Color.Gray
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Profile - Clickable
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.2f))
+                            .clickable { onProfileClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile",
+                            modifier = Modifier.size(32.dp),
+                            tint = Color.White
+                        )
+                    }
 
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Coins Card
+                    Card(
+                        modifier = Modifier.height(36.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.9f)),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Coins",
+                                tint = Color(0xFF8B5A00),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "$coins",
+                                color = Color(0xFF8B5A00),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(20.dp))
 
-                Card(
-                    modifier = Modifier
-                        .height(30.dp)
-                        .width(100.dp)
-                ) { }
-
+                IconButton(onClick = onSettingsClick) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
 
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Go to setting",
-                modifier = Modifier
-                    .size(60.dp)
-                    .align(Alignment.TopEnd)
-                    .padding(top = 30.dp, end = 24.dp)
-                    .clickable(onClick = {}),
-
-                )
-
-
+            // Game Mode Grid
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // First Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        16.dp,
-                        Alignment.CenterHorizontally
-                    )
-                ) {
-                    // Box 1 (existing)
-                    Box(
-                        modifier = Modifier
-                            .clickable(onClick = {})
-                            .background(color = Green, shape = RoundedCornerShape(12.dp))
-                            .size(width = 150.dp, height = 150.dp)
-                            .border(width = 4.dp, color = White, shape = RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
+                Text(
+                    text = "Select Game Mode",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
 
-                           Text(
-                               text = "2 Players",
-                               color = White,
-                               fontSize = 16.sp,
-                               fontWeight = FontWeight.Bold,
-                               textAlign = TextAlign.End,
-                               modifier = Modifier
-
-                           )
-
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        GameModeCard("2 Players", Color(0xFF4CAF50)) { onGameModeClick("2P") }
+                        GameModeCard("4 Players", Color(0xFF2196F3)) { onGameModeClick("4P") }
                     }
-
-                    // Box 2 (new)
-                    Box(
-                        modifier = Modifier
-                            .clickable(onClick = {})
-                            .background(color = Blue, shape = RoundedCornerShape(12.dp))
-                            .size(width = 150.dp, height = 150.dp)
-                            .border(width = 4.dp, color = White, shape = RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-
-                        Text(
-                            text = "4 Players",
-                            color = White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier
-
-                        )
-
-                    }
-                }
-
-                // Second Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        16.dp,
-                        Alignment.CenterHorizontally
-                    )
-                ) {
-                    // Box 3 (new)
-                    Box(
-                        modifier = Modifier
-                            .clickable(onClick = {})
-                            .background(color = Orange, shape = RoundedCornerShape(12.dp))
-                            .size(width = 150.dp, height = 150.dp)
-                            .border(width = 4.dp, color = White, shape = RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Friends",
-                            color = White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier
-
-                        )
-                    }
-
-                    // Box 4 (new)
-                    Box(
-                        modifier = Modifier
-                            .clickable(onClick = {})
-                            .background(color = Purple40, shape = RoundedCornerShape(12.dp))
-                            .size(width = 150.dp, height = 150.dp)
-                            .border(width = 4.dp, color = White, shape = RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Computer",
-                            color = White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier
-
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        GameModeCard("Friends", Orange) { onGameModeClick("Friends") }
+                        GameModeCard("Computer", Purple40) { onGameModeClick("Bot") }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun GameModeCard(
+    text: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .size(150.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = color),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(
+                    width = 2.dp,
+                    color = Color.White.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(20.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+// for Miles: ye sirf apni asni ke liye create
+// kiya he lekin ye backend me cover ho ga
+@Preview(showBackground = true)
+@Composable
+fun HomeScreenPreview() {
+    HomeScreen(
+        coins = 1000,
+        onProfileClick = {},
+        onSettingsClick = {},
+        onGameModeClick = {}
+    )
 }
