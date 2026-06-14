@@ -24,14 +24,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun IntroSec() {
+fun IntroSec(
+    onSubmit: (String, String) -> Unit // ye add kiya
+) {
     var nickname by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") } // ye actually phone hai
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Gallery launcher
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -63,7 +63,6 @@ fun IntroSec() {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Clickable Avatar
                 Box(
                     modifier = Modifier
                         .size(100.dp)
@@ -141,7 +140,11 @@ fun IntroSec() {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { /* Save data + imageUri */ },
+                    onClick = {
+                        if (nickname.isNotBlank() && email.isNotBlank()) {
+                            onSubmit(nickname, email) // yahan call kiya
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF9B59B6),
                         contentColor = Color.White
@@ -149,11 +152,18 @@ fun IntroSec() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = nickname.isNotBlank() && email.isNotBlank() // empty na ho to button disable
                 ) {
                     Text("ENTER", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }
         }
     }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun IntroSecPreview() {
+    IntroSec(onSubmit = { _, _ -> })
 }
