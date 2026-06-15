@@ -1,9 +1,15 @@
 package com.example.final_for_ind.screens.deposit
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CreditCard
@@ -14,11 +20,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+data class PaymentMethod(
+ val name: String,
+ val country: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,11 +40,27 @@ fun DepositScreen(
  onDeposit: (amount: Int) -> Unit = {}
 ) {
  var amount by remember { mutableStateOf("") }
+ var selectedMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+ val context = LocalContext.current
+ val scrollState = rememberScrollState() // scroller state
+
  val gradient = Brush.verticalGradient(
   colors = listOf(Color(0xFF2C3E50), Color(0xFF1A252F))
  )
 
  val quickAmounts = listOf(100, 500, 1000, 5000)
+
+ val paymentMethods = listOf(
+  PaymentMethod("PhonePe", "India"),
+  PaymentMethod("Paytm", "India"),
+  PaymentMethod("Razorpay", "India"),
+  PaymentMethod("PayU", "India"),
+  PaymentMethod("JazzCash", "Pakistan"),
+  PaymentMethod("EasyPaisa", "Pakistan"),
+  PaymentMethod("NayaPay", "Pakistan"),
+  PaymentMethod("SadaPay", "Pakistan"),
+  PaymentMethod("Binance", "Crypto")
+ )
 
  Scaffold(
   topBar = {
@@ -57,6 +85,7 @@ fun DepositScreen(
     .background(gradient)
     .padding(paddingValues)
     .padding(16.dp)
+    .verticalScroll(scrollState) // scroller add kia
   ) {
    Spacer(Modifier.height(20.dp))
 
@@ -136,7 +165,7 @@ fun DepositScreen(
 
    Spacer(Modifier.height(32.dp))
 
-   // Payment Methods Card - JazzCash, EasyPaisa, Binance
+   // Payment Methods Card
    Card(
     modifier = Modifier.fillMaxWidth(),
     shape = RoundedCornerShape(12.dp),
@@ -148,37 +177,60 @@ fun DepositScreen(
      Text("Payment Methods", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
      Spacer(Modifier.height(12.dp))
 
-     Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(Icons.Default.CreditCard, null, tint = Color.White.copy(alpha = 0.8f))
-      Spacer(Modifier.width(12.dp))
-      Text("JazzCash", color = Color.White, fontSize = 15.sp)
-     }
-
-     Spacer(Modifier.height(12.dp))
-
-     Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(Icons.Default.CreditCard, null, tint = Color.White.copy(alpha = 0.8f))
-      Spacer(Modifier.width(12.dp))
-      Text("EasyPaisa", color = Color.White, fontSize = 15.sp)
-     }
-
-     Spacer(Modifier.height(12.dp))
-
-     Row(verticalAlignment = Alignment.CenterVertically) {
-      Icon(Icons.Default.Star, null, tint = Color(0xFFF0B90B), modifier = Modifier.size(24.dp)) // Binance yellow
-      Spacer(Modifier.width(12.dp))
-      Text("Binance", color = Color.White, fontSize = 15.sp)
+     paymentMethods.forEach { method ->
+      val isSelected = selectedMethod?.name == method.name
+      Row(
+       modifier = Modifier
+        .fillMaxWidth()
+        .clickable { selectedMethod = method }
+        .border(
+         width = if (isSelected) 2.dp else 0.dp,
+         color = if (isSelected) Color(0xFFFFD700) else Color.Transparent,
+         shape = RoundedCornerShape(8.dp)
+        )
+        .background(
+         color = if (isSelected) Color(0xFFFFD700).copy(alpha = 0.1f) else Color.Transparent,
+         shape = RoundedCornerShape(8.dp)
+        )
+        .padding(12.dp),
+       verticalAlignment = Alignment.CenterVertically
+      ) {
+       RadioButton(
+        selected = isSelected,
+        onClick = { selectedMethod = method },
+        colors = RadioButtonDefaults.colors(
+         selectedColor = Color(0xFFFFD700),
+         unselectedColor = Color.White.copy(alpha = 0.5f)
+        )
+       )
+       Spacer(Modifier.width(12.dp))
+       Icon(Icons.Default.CreditCard, null, tint = Color.White.copy(alpha = 0.8f))
+       Spacer(Modifier.width(12.dp))
+       Column {
+        Text(method.name, color = Color.White, fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+        Text(method.country, color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+       }
+      }
+      Spacer(Modifier.height(8.dp))
      }
     }
    }
 
-   Spacer(Modifier.weight(1f))
+   Spacer(Modifier.height(32.dp))
 
    // Deposit Button
    Button(
     onClick = {
-     amount.toIntOrNull()?.let { depositAmount ->
-      if (depositAmount > 0) {
+     val depositAmount = amount.toIntOrNull()
+     when {
+      selectedMethod == null -> {
+       Toast.makeText(context, "Please select payment method", Toast.LENGTH_SHORT).show()
+      }
+      depositAmount == null || depositAmount <= 0 -> {
+       Toast.makeText(context, "Please enter valid amount", Toast.LENGTH_SHORT).show()
+      }
+      else -> {
+       Log.d("DEPOSIT", "Deposit $depositAmount via ${selectedMethod!!.name}")
        onDeposit(depositAmount)
        onBack()
       }
@@ -187,10 +239,8 @@ fun DepositScreen(
     modifier = Modifier
      .fillMaxWidth()
      .height(56.dp),
-    enabled = amount.isNotEmpty() && amount.toIntOrNull() ?: 0 > 0,
     colors = ButtonDefaults.buttonColors(
-     containerColor = Color(0xFFFFD700),
-     disabledContainerColor = Color(0xFFFFD700).copy(alpha = 0.3f)
+     containerColor = Color(0xFFFFD700)
     ),
     shape = RoundedCornerShape(12.dp)
    ) {

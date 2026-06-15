@@ -1,6 +1,5 @@
 package com.example.final_for_ind.screens.dice_board
 
-
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,7 +40,6 @@ object LudoColors {
 }
 
 object LudoPath {
-    // 52-step main path, starts at red entry Cell(6,1)
     private val mainPath = listOf(
         Cell(6, 1), Cell(6, 2), Cell(6, 3), Cell(6, 4), Cell(6, 5),
         Cell(5, 6), Cell(4, 6), Cell(3, 6), Cell(2, 6), Cell(1, 6), Cell(0, 6),
@@ -73,12 +71,12 @@ object LudoPath {
         val start = startIndex[color]!!
         val path = mutableListOf<Cell>()
         var idx = start
-        repeat(51) { // 51 steps on main path before home
+        repeat(51) {
             path.add(mainPath[idx])
             idx = (idx + 1) % mainPath.size
         }
-        path.addAll(homePath[color]!!) // 6 home steps
-        return path // Total 57 steps: 0-50 main, 51-56 home
+        path.addAll(homePath[color]!!)
+        return path
     }
 
     val basePositions = mapOf(
@@ -89,9 +87,11 @@ object LudoPath {
     )
 }
 
-@Preview
 @Composable
-fun LudoGame() {
+fun LudoGame(
+    mode: String,
+    betAmount: Int
+) {
     var tokens by remember {
         mutableStateOf(
             PlayerColor.values().flatMap { color ->
@@ -160,16 +160,13 @@ fun LudoBoard(
                 drawPath(path, color)
             }
 
-            // 1. White base
             for (r in 0 until boardSize) for (c in 0 until boardSize) cell(r, c, Color.White)
 
-            // 2. Home areas
             for (r in 0..5) for (c in 0..5) cell(r, c, LudoColors.map[PlayerColor.RED]!!)
             for (r in 0..5) for (c in 9..14) cell(r, c, LudoColors.map[PlayerColor.GREEN]!!)
             for (r in 9..14) for (c in 0..5) cell(r, c, LudoColors.map[PlayerColor.BLUE]!!)
             for (r in 9..14) for (c in 9..14) cell(r, c, LudoColors.map[PlayerColor.YELLOW]!!)
 
-            // 3. White centers + circles
             fun homeArea(sr: Int, sc: Int, color: PlayerColor) {
                 for (r in sr + 1..sr + 4) for (c in sc + 1..sc + 4) cell(r, c, Color.White)
                 listOf(Offset(2.5f, 2.5f), Offset(3.5f, 2.5f), Offset(2.5f, 3.5f), Offset(3.5f, 3.5f)).forEach { pos ->
@@ -190,7 +187,6 @@ fun LudoBoard(
             homeArea(9, 0, PlayerColor.BLUE)
             homeArea(9, 9, PlayerColor.YELLOW)
 
-            // 4. Colored paths
             for (c in 1..5) cell(7, c, LudoColors.map[PlayerColor.RED]!!)
             drawCell(6, 1, LudoColors.map[PlayerColor.RED]!!)
             for (r in 1..5) cell(r, 7, LudoColors.map[PlayerColor.GREEN]!!)
@@ -200,13 +196,11 @@ fun LudoBoard(
             for (r in 9..13) cell(r, 7, LudoColors.map[PlayerColor.BLUE]!!)
             drawCell(13, 6, LudoColors.map[PlayerColor.BLUE]!!)
 
-            // 5. Stars
             star(2, 6, LudoColors.map[PlayerColor.GREEN]!!)
             star(6, 2, LudoColors.map[PlayerColor.RED]!!)
             star(8, 12, LudoColors.map[PlayerColor.YELLOW]!!)
             star(12, 8, LudoColors.map[PlayerColor.BLUE]!!)
 
-            // 6. Center triangles
             val c = Offset(7.5f * px, 7.5f * px)
             val p1 = Offset(7 * px, 7 * px); val p2 = Offset(8 * px, 7 * px)
             val p3 = Offset(8 * px, 8 * px); val p4 = Offset(7 * px, 8 * px)
@@ -216,7 +210,6 @@ fun LudoBoard(
             drawPath(Path().apply { moveTo(c.x, c.y); lineTo(p3.x, p3.y); lineTo(p4.x, p4.y); close() }, LudoColors.map[PlayerColor.BLUE]!!)
         }
 
-        // Tokens
         tokens.forEach { token ->
             val cell = when {
                 token.position == -1 -> LudoPath.basePositions[token.color]!![token.id % 4]
@@ -242,9 +235,7 @@ fun LudoBoard(
 @Composable
 fun PinToken(modifier: Modifier = Modifier, color: Color) {
     Canvas(modifier) {
-        // Shadow
         drawOval(Color.Black.copy(alpha = 0.3f), Offset(size.width * 0.15f, size.height * 0.8f), Size(size.width * 0.7f, size.height * 0.2f))
-
         val path = Path().apply {
             val w = size.width; val h = size.height
             addOval(Rect(w * 0.1f, 0f, w * 0.9f, h * 0.7f))
@@ -255,4 +246,10 @@ fun PinToken(modifier: Modifier = Modifier, color: Color) {
         drawCircle(color, size.width * 0.18f, Offset(size.width * 0.5f, size.height * 0.35f))
         drawCircle(Color.White, size.width * 0.18f, Offset(size.width * 0.5f, size.height * 0.35f), style = Stroke(2.dp.toPx()))
     }
+}
+
+@Preview
+@Composable
+fun LudoGamePreview() {
+    LudoGame(mode = "2P", betAmount = 1000)
 }

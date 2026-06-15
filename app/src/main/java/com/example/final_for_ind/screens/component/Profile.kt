@@ -10,11 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.History  // naya icon
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,10 +32,9 @@ import coil.compose.AsyncImage
 @Composable
 fun ProfileScreen(
     name: String = "John Doe",
-    email: String = "john@example.com",
-    coins: Int = 1250,
+    coins: Int = 1250,  // email parameter hata dia
     onBack: () -> Unit = {},
-    onChangePassword: () -> Unit = {},
+    onBetHistory: () -> Unit = {},  // change password ki jaga ye
     onLogout: () -> Unit = {}
 ) {
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -120,11 +117,7 @@ fun ProfileScreen(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
-            Text(
-                text = email,
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 14.sp
-            )
+            // email wala Text yahan se hata dia
 
             Spacer(Modifier.height(24.dp))
 
@@ -156,17 +149,11 @@ fun ProfileScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Menu Items
+            // Menu Items - Email aur Change Password hata ke Bet History add kia
             ProfileMenuItem(
-                icon = Icons.Default.Email,
-                title = "Email",
-                subtitle = email
-            )
-
-            ProfileMenuItem(
-                icon = Icons.Default.VpnKey,
-                title = "Change Password",
-                onClick = onChangePassword
+                icon = Icons.Default.History,
+                title = "Bet History",
+                onClick = onBetHistory
             )
 
             Spacer(Modifier.weight(1f))

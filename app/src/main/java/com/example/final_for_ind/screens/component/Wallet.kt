@@ -3,11 +3,10 @@ package com.example.final_for_ind.screens.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Games
+import androidx.compose.material.icons.filled.CurrencyExchange // USDT icon
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
@@ -18,36 +17,28 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     balance: Int = 0,
-    selectedNavIndex: Int = 1, // Wallet = 1
-    onNavItemClick: (Int) -> Unit = {},
-    onAddCoins: (Int) -> Unit = {},
+    onNavItemClick: (String) -> Unit = {},
+    onAddCoinsByUSDT: () -> Unit = {}, // naam change
     onDeposit: () -> Unit = {},
     onWithdraw: () -> Unit = {}
 ) {
-    var amountInput by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF2C3E50), Color(0xFF1A252F))
     )
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             BottomNavBar(
-                selectedIndex = selectedNavIndex,
-                onItemClick = onNavItemClick
+                currentRoute = "wallet",
+                onNavigate = onNavItemClick
             )
         },
         containerColor = Color.Transparent
@@ -56,7 +47,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(gradient)
-                .padding(paddingValues), // bottomBar padding auto mil jayega
+                .padding(paddingValues),
             contentAlignment = Alignment.Center
         ) {
             Card(
@@ -114,53 +105,13 @@ fun DashboardScreen(
                         }
                     }
 
-                    HorizontalDivider(
-                        color = Color.White.copy(alpha = 0.2f),
-                        modifier = Modifier.padding(vertical = 20.dp)
-                    )
-
-                    SectionTitle("Add Balance")
-
-                    OutlinedTextField(
-                        value = amountInput,
-                        onValueChange = {
-                            if (it.isEmpty() || it.all { char -> char.isDigit() }) {
-                                amountInput = it
-                            }
-                        },
-                        label = { Text("Enter amount", color = Color.Gray) },
-                        placeholder = { Text("0", color = Color.Gray) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedTextColor = Color.Black,
-                            unfocusedTextColor = Color.Black
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(32.dp))
 
                     GradientButton(
-                        text = "Add Coins",
-                        icon = Icons.Default.Games,
-                        gradient = Brush.horizontalGradient(listOf(Color(0xFF2980B9), Color(0xFF3498DB))),
-                        onClick = {
-                            val amount = amountInput.toIntOrNull()
-                            if (amount!= null && amount > 0) {
-                                onAddCoins(amount)
-                                amountInput = ""
-                            } else {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Please enter a valid amount")
-                                }
-                            }
-                        }
+                        text = "Add Coins by USDT", // text change
+                        icon = Icons.Default.CurrencyExchange, // USDT icon
+                        gradient = Brush.horizontalGradient(listOf(Color(0xFF26A17B), Color(0xFF50AF95))), // USDT green gradient
+                        onClick = onAddCoinsByUSDT
                     )
 
                     Spacer(Modifier.height(12.dp))

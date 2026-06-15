@@ -1,7 +1,6 @@
 package com.example.final_for_ind.screens.home_lobby
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -9,9 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,29 +20,27 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-@Preview
 @Composable
-fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = { _, _ -> }) {
-    var selectedVariation by remember { mutableStateOf("CLASSIC") }
+fun GameSetupDialog(
+    mode: String,
+    coins: Int,
+    onDismiss: () -> Unit,
+    onStartGame: (String, Int) -> Unit
+) {
     var betAmount by remember { mutableStateOf(1000) }
 
-    val bets = listOf(500, 1000, 2000, 5000, 10000)
+    val bets = listOf(200, 500, 1000, 2000, 5000, 10000)
     val currentBetIndex = bets.indexOf(betAmount).coerceAtLeast(0)
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF2C3E50)),
+        modifier = Modifier.fillMaxSize().background(Color(0xFF2C3E50)),
         contentAlignment = Alignment.Center
     ) {
         Box(modifier = Modifier.width(320.dp)) {
-            // Main card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F1E8))
-
-
             ) {
                 Column(
                     modifier = Modifier.padding(vertical = 20.dp, horizontal = 50.dp),
@@ -61,11 +56,6 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
                         letterSpacing = 1.sp
                     )
 
-                    Spacer(Modifier.height(20.dp))
-
-                    // Variation selection
-
-
                     Spacer(Modifier.height(28.dp))
 
                     Text(
@@ -78,12 +68,10 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
 
                     Spacer(Modifier.height(16.dp))
 
-                    // Bet selector
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        // Minus button
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -98,7 +86,6 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
                             Icon(Icons.Default.Remove, null, tint = Color.White, modifier = Modifier.size(20.dp))
                         }
 
-                        // Bet amount
                         Box(
                             modifier = Modifier
                                 .width(140.dp)
@@ -123,7 +110,6 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
                             }
                         }
 
-                        // Plus button
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -141,12 +127,9 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
 
                     Spacer(Modifier.height(28.dp))
 
-                    // Play button
                     Button(
-                        onClick = { onPlay(selectedVariation, betAmount) },
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(48.dp),
+                        onClick = { onStartGame(mode, betAmount) }, // <- ye important hai
+                        modifier = Modifier.fillMaxWidth(0.7f).height(48.dp),
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF2ECC71),
@@ -160,7 +143,7 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
                 }
             }
 
-            // Top header "2 PLAYERS"
+            // Top header ab dynamic hai
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -170,7 +153,7 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
                     .padding(horizontal = 24.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "4 PLAYERS",
+                    text = "$mode PLAYERS",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
@@ -178,7 +161,6 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
                 )
             }
 
-            // Close button
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -193,4 +175,15 @@ fun GameSetupDialog_2(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit 
             }
         }
     }
+}
+
+@Preview
+@Composable
+fun GameSetupDialogPreview() {
+    GameSetupDialog(
+        mode = "2P",
+        coins = 1250,
+        onDismiss = {},
+        onStartGame = { _, _ -> }
+    )
 }

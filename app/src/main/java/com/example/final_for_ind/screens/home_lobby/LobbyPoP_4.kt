@@ -1,9 +1,6 @@
 package com.example.final_for_ind.screens.home_lobby
 
-
-
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -11,9 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,7 +26,7 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
     var selectedVariation by remember { mutableStateOf("CLASSIC") }
     var betAmount by remember { mutableStateOf(1000) }
 
-    val bets = listOf(500, 1000, 2000, 5000, 10000)
+    val bets = listOf(200, 500, 1000, 2000, 5000, 10000)
     val currentBetIndex = bets.indexOf(betAmount).coerceAtLeast(0)
 
     Box(
@@ -159,7 +154,7 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                 }
             }
 
-            // Top header "2 PLAYERS"
+
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -169,7 +164,7 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                     .padding(horizontal = 24.dp, vertical = 8.dp)
             ) {
                 Text(
-                    text = "2 PLAYERS",
+                    text = "4 PLAYERS",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
@@ -193,4 +188,3 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
         }
     }
 }
-

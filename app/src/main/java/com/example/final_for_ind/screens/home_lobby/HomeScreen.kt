@@ -32,14 +32,21 @@ fun HomeScreen(
     coins: Int = 1250,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onGameModeClick: (String) -> Unit
+    onGameModeClick: (String, Int) -> Unit, // <- ye change
+    onCoinsClick: () -> Unit = {},
+    onNavItemClick: (String) -> Unit = {}
 ) {
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF2C3E50), Color(0xFF1A252F))
     )
 
     Scaffold(
-        bottomBar = { BottomNavBar() },
+        bottomBar = {
+            BottomNavBar(
+                currentRoute = "home",
+                onNavigate = onNavItemClick
+            )
+        },
         containerColor = Color.Transparent
     ) { innerPadding ->
         Box(
@@ -48,7 +55,6 @@ fun HomeScreen(
                 .background(gradient)
                 .padding(innerPadding)
         ) {
-            // Top Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -57,7 +63,6 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Profile - Clickable
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -76,9 +81,10 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Coins Card
                     Card(
-                        modifier = Modifier.height(36.dp),
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clickable { onCoinsClick() },
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.9f)),
                         shape = RoundedCornerShape(18.dp)
                     ) {
@@ -113,7 +119,6 @@ fun HomeScreen(
                 }
             }
 
-            // Game Mode Grid
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -129,12 +134,12 @@ fun HomeScreen(
 
                 Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        GameModeCard("2 Players", Color(0xFF4CAF50)) { onGameModeClick("2P") }
-                        GameModeCard("4 Players", Color(0xFF2196F3)) { onGameModeClick("4P") }
+                        GameModeCard("2 Players", Color(0xFF4CAF50)) { onGameModeClick("2P", 0) }
+                        GameModeCard("4 Players", Color(0xFF2196F3)) { onGameModeClick("4P", 0) }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        GameModeCard("Friends", Orange) { onGameModeClick("Friends") }
-                        GameModeCard("Computer", Purple40) { onGameModeClick("Bot") }
+                        GameModeCard("Friends", Orange) { onGameModeClick("Friends", 0) }
+                        GameModeCard("Computer", Purple40) { onGameModeClick("Bot", 0) }
                     }
                 }
             }
@@ -177,8 +182,6 @@ fun GameModeCard(
     }
 }
 
-// for Miles: ye sirf apni asni ke liye create
-// kiya he lekin ye backend me cover ho ga
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
@@ -186,6 +189,7 @@ fun HomeScreenPreview() {
         coins = 1000,
         onProfileClick = {},
         onSettingsClick = {},
-        onGameModeClick = {}
+        onGameModeClick = { _, _ -> },
+        onNavItemClick = {}
     )
 }

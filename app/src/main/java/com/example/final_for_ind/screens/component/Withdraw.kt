@@ -1,25 +1,65 @@
 package com.example.final_for_ind.screens.component
 
-
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+data class PaymentMethod(
+    val name: String,
+    val country: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +69,10 @@ fun WithdrawScreen(
     onWithdraw: (amount: Int) -> Unit = {}
 ) {
     var amount by remember { mutableStateOf("") }
+    var selectedMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+    val context = LocalContext.current
+    val scrollState = rememberScrollState() // scroller state add kia
+
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF2C3E50), Color(0xFF1A252F))
     )
@@ -36,6 +80,18 @@ fun WithdrawScreen(
     val quickAmounts = listOf(100, 500, 1000, currentBalance)
     val enteredAmount = amount.toIntOrNull() ?: 0
     val isValidAmount = enteredAmount > 0 && enteredAmount <= currentBalance
+
+    val paymentMethods = listOf(
+        PaymentMethod("PhonePe", "India"),
+        PaymentMethod("Paytm", "India"),
+        PaymentMethod("Razorpay", "India"),
+        PaymentMethod("PayU", "India"),
+        PaymentMethod("JazzCash", "Pakistan"),
+        PaymentMethod("EasyPaisa", "Pakistan"),
+        PaymentMethod("NayaPay", "Pakistan"),
+        PaymentMethod("SadaPay", "Pakistan"),
+        PaymentMethod("Binance", "Crypto")
+    )
 
     Scaffold(
         topBar = {
@@ -60,6 +116,7 @@ fun WithdrawScreen(
                 .background(gradient)
                 .padding(paddingValues)
                 .padding(16.dp)
+                .verticalScroll(scrollState) // ye line add ki scroller ke liye
         ) {
             Spacer(Modifier.height(20.dp))
 
@@ -155,7 +212,7 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // Withdrawal Methods Card
+            // Withdrawal Methods Card with Selection
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -167,47 +224,68 @@ fun WithdrawScreen(
                     Text("Withdrawal Methods", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(12.dp))
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CreditCard, null, tint = Color.White.copy(alpha = 0.8f))
-                        Spacer(Modifier.width(12.dp))
-                        Text("JazzCash", color = Color.White, fontSize = 15.sp)
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CreditCard, null, tint = Color.White.copy(alpha = 0.8f))
-                        Spacer(Modifier.width(12.dp))
-                        Text("EasyPaisa", color = Color.White, fontSize = 15.sp)
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, null, tint = Color(0xFFF0B90B), modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Binance", color = Color.White, fontSize = 15.sp)
+                    paymentMethods.forEach { method ->
+                        val isSelected = selectedMethod?.name == method.name
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedMethod = method }
+                                .border(
+                                    width = if (isSelected) 2.dp else 0.dp,
+                                    color = if (isSelected) Color(0xFFFF5252) else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .background(
+                                    color = if (isSelected) Color(0xFFFF5252).copy(alpha = 0.1f) else Color.Transparent,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { selectedMethod = method },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = Color(0xFFFF5252),
+                                    unselectedColor = Color.White.copy(alpha = 0.5f)
+                                )
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Icon(Icons.Default.CreditCard, null, tint = Color.White.copy(alpha = 0.8f))
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(method.name, color = Color.White, fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                Text(method.country, color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(32.dp))
 
-            // Withdraw Button
+            // Withdraw Button with Validation
             Button(
                 onClick = {
-                    if (isValidAmount) {
-                        onWithdraw(enteredAmount)
-                        onBack()
+                    when {
+                        selectedMethod == null -> {
+                            Toast.makeText(context, "Please select payment method", Toast.LENGTH_SHORT).show()
+                        }
+                        !isValidAmount -> {
+                            Toast.makeText(context, "Please enter valid amount", Toast.LENGTH_SHORT).show()
+                        }
+                        else -> {
+                            onWithdraw(enteredAmount)
+                            onBack()
+                        }
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                enabled = isValidAmount,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFF5252),
-                    disabledContainerColor = Color(0xFFFF5252).copy(alpha = 0.3f)
+                    containerColor = Color(0xFFFF5252)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
