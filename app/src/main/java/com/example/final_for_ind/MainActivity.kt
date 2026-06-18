@@ -1,5 +1,9 @@
 package com.example.final_for_ind
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -11,7 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -23,21 +30,24 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.final_for_ind.screens.home_lobby.HomeScreen
+import com.example.final_for_ind.screens.referral.CreateRoomScreen
+import com.example.final_for_ind.screens.referral.InviteScreen
+import com.example.final_for_ind.screens.component.DashboardScreen
+import com.example.final_for_ind.screens.component.GiftSpinScreen
+import com.example.final_for_ind.screens.component.InternationalPayment
+import com.example.final_for_ind.screens.component.WithdrawScreen
+import com.example.final_for_ind.screens.deposit.DepositScreen
 import com.example.final_for_ind.screens.dice_board.LudoGame
 import com.example.final_for_ind.screens.home_lobby.GameSetupDialog
+import com.example.final_for_ind.screens.home_lobby.HomeScreen
 import com.example.final_for_ind.screens.login_frame.First_Screen
 import com.example.final_for_ind.screens.login_frame.IntroSec
 import com.example.final_for_ind.screens.login_frame.LoginVari
 import com.example.final_for_ind.screens.profile.ProfileScreen
+import com.example.final_for_ind.screens.referral.JoinReferralScreen
 import com.example.final_for_ind.screens.start.SettingScreen
 import com.example.final_for_ind.screens.start.SplashScreen
 import com.example.final_for_ind.screens.start.TermsScreen
-import com.example.final_for_ind.screens.deposit.DepositScreen
-import com.example.final_for_ind.screens.component.DashboardScreen
-import com.example.final_for_ind.screens.component.GiftSpinScreen
-import com.example.final_for_ind.screens.component.WithdrawScreen
-import com.example.final_for_ind.screens.component.InternationalPayment
 import com.example.final_for_ind.ui.theme.Final_for_indTheme
 
 class MainActivity : ComponentActivity() {
@@ -47,11 +57,10 @@ class MainActivity : ComponentActivity() {
             Final_for_indTheme {
                 val navController = rememberNavController()
                 val context = LocalContext.current
+                var userCoins by remember { mutableStateOf(1250) }
 
-                NavHost(
-                    navController = navController,
-                    startDestination = "splash"
-                ) {
+                NavHost(navController = navController, startDestination = "splash") {
+
                     composable("splash") {
                         SplashScreen {
                             navController.navigate("first") {
@@ -70,20 +79,39 @@ class MainActivity : ComponentActivity() {
                         val loggedOut = backStackEntry.arguments?.getBoolean("loggedOut") ?: false
                         First_Screen(
                             onPlayClick = { navController.navigate("intro") },
-                            onJoinCodeClick = {
-                                Toast.makeText(context, "Coming Soon", Toast.LENGTH_SHORT).show()
-                            },
+                            onJoinCodeClick = { navController.navigate("join") },
                             showLogoutMessage = loggedOut
                         )
                     }
 
-                    composable("intro") {
-                        IntroSec(
-                            onSubmit = { name, phone ->
-                                Log.d("BACKEND_TODO", "Send OTP to $phone for $name")
-                                navController.navigate("verify/$phone")
+                    composable("join") {
+                        JoinReferralScreen(
+                            bonusCoins = 50,
+                            onReferralApplied = { code ->
+                                Log.d("REFERRAL", "Code entered: $code")
+                                userCoins += 50
+                                Toast.makeText(
+                                    context,
+                                    "Referral code: $code applied +50 coins",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                navController.navigate("intro") {
+                                    popUpTo("join") { inclusive = true }
+                                }
+                            },
+                            onSkip = {
+                                navController.navigate("intro") {
+                                    popUpTo("join") { inclusive = true }
+                                }
                             }
                         )
+                    }
+
+                    composable("intro") {
+                        IntroSec(onSubmit = { name, phone ->
+                            Log.d("BACKEND_TODO", "Send OTP to $phone for $name")
+                            navController.navigate("verify/$phone")
+                        })
                     }
 
                     composable(
@@ -93,26 +121,23 @@ class MainActivity : ComponentActivity() {
                         val phone = backStackEntry.arguments?.getString("phone") ?: ""
                         LoginVari(
                             phoneNumber = phone,
-                            onVerify = { navController.navigate("terms") }
-                        )
+                            onVerify = { navController.navigate("terms") })
                     }
 
                     composable("terms") {
-                        TermsScreen(
-                            onAccept = {
-                                Log.d("BACKEND_TODO", "Save user & mark T&C agreed")
-                                navController.navigate("home") {
-                                    popUpTo("splash") { inclusive = true }
-                                }
+                        TermsScreen(onAccept = {
+                            Log.d("BACKEND_TODO", "Save user & mark T&C agreed")
+                            navController.navigate("home") {
+                                popUpTo("splash") { inclusive = true }
                             }
-                        )
+                        })
                     }
 
                     composable("home") {
                         var showCoinsDialog by remember { mutableStateOf(false) }
 
                         HomeScreen(
-                            coins = 1250,
+                            coins = userCoins,
                             onProfileClick = { navController.navigate("profile") },
                             onSettingsClick = { navController.navigate("settings") },
                             onGameModeClick = { mode, _ ->
@@ -126,7 +151,8 @@ class MainActivity : ComponentActivity() {
                             onCoinsClick = { showCoinsDialog = true },
                             onNavItemClick = { route ->
                                 if (route != "home") navController.navigate(route)
-                            }
+                            },
+                            onFriendsClick = { navController.navigate("create_room/Ali Khan") }
                         )
 
                         if (showCoinsDialog) {
@@ -134,18 +160,33 @@ class MainActivity : ComponentActivity() {
                                 onDismissRequest = { showCoinsDialog = false },
                                 containerColor = Color(0xFF2C3E50),
                                 title = {
-                                    Text("Your Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                    Text(
+                                        "Your Coins",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp
+                                    )
                                 },
                                 text = {
                                     Column {
-                                        Text("Total: 1250 💰", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                        Text(
+                                            "Total: $userCoins 💰",
+                                            color = Color.White,
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                         Spacer(Modifier.height(12.dp))
                                         Text("• Won: 500 coins", color = Color(0xFF25D366))
-                                        Text("• Bonus: 750 coins", color = Color(0xFFF39C12))
+                                        Text(
+                                            "• Bonus: ${userCoins - 500} coins",
+                                            color = Color(0xFF39C12F)
+                                        )
                                         Spacer(Modifier.height(8.dp))
-                                        Text("Join premium matches with coins!",
+                                        Text(
+                                            "Join premium matches with coins!",
                                             color = Color.White.copy(alpha = 0.7f),
-                                            fontSize = 14.sp)
+                                            fontSize = 14.sp
+                                        )
                                     }
                                 },
                                 confirmButton = {
@@ -157,19 +198,67 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Ye naya route add kiya lobby ke liye
+                    composable(
+                        "create_room/{friendName}",
+                        arguments = listOf(navArgument("friendName") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val friendName =
+                            backStackEntry.arguments?.getString("friendName") ?: "Friend"
+                        CreateRoomScreen(
+                            friendName = friendName,
+                            onBack = { navController.popBackStack() },
+                            onCreateLink = {
+                                Log.d("ROOM", "Room create logic here")
+                                Toast.makeText(context, "Room Created!", Toast.LENGTH_SHORT).show()
+                            },
+                            onShareLink = {
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "Join karo Ludo Room! Link: yourapp://room/ABC123 🎮"
+                                    )
+                                }
+                                startActivity(Intent.createChooser(sendIntent, "Share Room Link"))
+                            },
+                            onCopyLink = {
+                                val clipboard =
+                                    context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip =
+                                    ClipData.newPlainText("Room Link", "yourapp://room/ABC123")
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Link Copied!", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+
                     composable(
                         "setup/{mode}",
                         arguments = listOf(navArgument("mode") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val mode = backStackEntry.arguments?.getString("mode") ?: "2P"
+
                         GameSetupDialog(
-                            mode = mode,
-                            coins = 1250,
                             onDismiss = { navController.popBackStack() },
-                            onStartGame = { m, bet ->
-                                navController.navigate("game/$m/$bet") {
-                                    popUpTo("setup/$mode") { inclusive = true }
+                            onPlay = { variation, bet ->
+
+                                val finalMode = when (variation) {
+                                    "CLASSIC" -> "4P"
+                                    "AK47" -> "2P"
+                                    "JOKER" -> "4P"
+                                    "MUFLIS" -> "2P"
+                                    else -> mode
+                                }
+
+
+                                if (userCoins >= bet) {
+                                    userCoins -= bet
+                                    navController.navigate("game/$finalMode/$bet") {
+                                        popUpTo("setup/$mode") { inclusive = true }
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT)
+                                        .show()
                                 }
                             }
                         )
@@ -177,7 +266,7 @@ class MainActivity : ComponentActivity() {
 
                     composable("wallet") {
                         DashboardScreen(
-                            balance = 1250,
+                            balance = userCoins,
                             onNavItemClick = { route ->
                                 if (route != "wallet") navController.navigate(route)
                             },
@@ -192,6 +281,7 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onProceed = { amount, method ->
                                 Log.d("USDT", "Proceed $amount USDT via $method")
+                                userCoins += amount
                                 navController.popBackStack()
                             }
                         )
@@ -199,10 +289,11 @@ class MainActivity : ComponentActivity() {
 
                     composable("deposit") {
                         DepositScreen(
-                            currentBalance = 1250,
+                            currentBalance = userCoins,
                             onBack = { navController.popBackStack() },
                             onDeposit = { amount ->
                                 Log.d("DEPOSIT", "Deposit $amount coins")
+                                userCoins += amount
                                 navController.popBackStack()
                             }
                         )
@@ -210,24 +301,35 @@ class MainActivity : ComponentActivity() {
 
                     composable("withdraw") {
                         WithdrawScreen(
-                            currentBalance = 1250,
+                            currentBalance = userCoins,
                             onBack = { navController.popBackStack() },
                             onWithdraw = { amount ->
-                                Log.d("WITHDRAW", "Withdraw $amount coins")
-                                navController.popBackStack()
+                                if (userCoins >= amount) {
+                                    Log.d("WITHDRAW", "Withdraw $amount coins")
+                                    userCoins -= amount
+                                    navController.popBackStack()
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "Insufficient balance",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
                         )
                     }
 
                     composable("gift") {
                         GiftSpinScreen(
-                            currentCoins = 1250,
+                            currentCoins = userCoins,
                             onBack = { navController.popBackStack() },
-                            onRewardClaimed = { coins -> Log.d("GIFT", "Won $coins coins") }
+                            onRewardClaimed = { coins ->
+                                userCoins += coins
+                                Log.d("GIFT", "Won $coins coins")
+                            }
                         )
                     }
 
-                    // Game route ab mode + bet lega
                     composable(
                         "game/{mode}/{bet}",
                         arguments = listOf(
@@ -244,6 +346,7 @@ class MainActivity : ComponentActivity() {
                         SettingScreen(
                             onBack = { navController.popBackStack() },
                             onNavigateToProfile = { navController.navigate("profile") },
+                            onNavigateToInvite = { navController.navigate("invite") },
                             onLogout = {
                                 Log.d("BACKEND_TODO", "Clear session & navigate to login")
                                 navController.navigate("first?loggedOut=true") {
@@ -253,10 +356,38 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    composable("invite") {
+                        InviteScreen(
+                            userReferralCode = "AB7X9K",
+                            invitedCount = 3,
+                            targetCount = 5,
+                            onShare = { code ->
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "Join karo Ludo App! Mera referral code: $code. 50 coins bonus mile ga 🎁"
+                                    )
+                                    setPackage("com.whatsapp")
+                                }
+                                try {
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        "WhatsApp install nahi hai",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
                     composable("profile") {
                         ProfileScreen(
                             name = "John Doe",
-                            coins = 1250,
+                            coins = userCoins,
                             onBack = { navController.popBackStack() },
                             onBetHistory = { Log.d("BACKEND_TODO", "Open Bet History Screen") },
                             onLogout = {
