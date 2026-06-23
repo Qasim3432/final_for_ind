@@ -1,5 +1,6 @@
 package com.example.final_for_ind.screens.home_lobby
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,19 +26,22 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = { _, _ -> }) {
-    var selectedVariation by remember { mutableStateOf("CLASSIC") }
+fun FourPlayerDialog(
+    walletBalance: Int = 0, // 👈 coins -> walletBalance kar diya
+    onDismiss: () -> Unit = {},
+    onPlayBet: (betAmount: Int) -> Unit = { _ -> } // 👈 onPlay -> onPlayBet kar diya
+) {
     var betAmount by remember { mutableStateOf(1000) }
-
     val bets = listOf(200, 500, 1000, 2000, 5000, 10000)
     val currentBetIndex = bets.indexOf(betAmount).coerceAtLeast(0)
-    val variations = listOf("CLASSIC", "AK47", "JOKER", "MUFLIS")
+    val hasEnoughBalance = betAmount <= walletBalance // 👈 coins -> walletBalance
 
     val overlayGradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF0F2027).copy(alpha = 0.9f), Color(0xFF203A43).copy(alpha = 0.9f))
@@ -65,28 +70,24 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Spacer(Modifier.height(8.dp))
 
-                        Text(
-                            "SELECT VARIATION", fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.6f), letterSpacing = 2.sp
-                        )
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                        // Balance display
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFFD700).copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFFFFD700).copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
                         ) {
-                            variations.forEach { variation ->
-                                VariationChip(
-                                    text = variation,
-                                    isSelected = selectedVariation == variation,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { selectedVariation = variation }
-                                )
-                            }
+                            Text(
+                                "Balance: $walletBalance coins", // 👈 coins -> walletBalance
+                                color = Color(0xFFFFD700),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
                         }
 
-                        Spacer(Modifier.height(32.dp))
+                        Spacer(Modifier.height(20.dp))
 
                         Text(
                             "CHOOSE BET", fontSize = 12.sp, fontWeight = FontWeight.Bold,
@@ -117,31 +118,31 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                                     .clip(RoundedCornerShape(28.dp))
                                     .background(
                                         brush = Brush.horizontalGradient(
-                                            listOf(
-                                                Color(0xFF1A252F),
-                                                Color(0xFF2C3E50)
-                                            )
+                                            listOf(Color(0xFF1A252F), Color(0xFF2C3E50))
                                         ),
                                         shape = RoundedCornerShape(28.dp)
                                     )
                                     .border(
                                         2.dp,
-                                        Color(0xFFFFD700).copy(alpha = 0.5f),
+                                        if (hasEnoughBalance) Color(0xFFFFD700).copy(alpha = 0.5f) else Color.Red.copy(alpha = 0.6f),
                                         RoundedCornerShape(28.dp)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        "$betAmount", color = Color(0xFFFFD700), fontSize = 22.sp,
-                                        fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp
+                                        "$betAmount",
+                                        color = if (hasEnoughBalance) Color(0xFFFFD700) else Color.Red,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.sp
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Box(
                                         Modifier
                                             .size(22.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFFFFD700))
+                                            .background(color = if (hasEnoughBalance) Color(0xFFFFD700) else Color.Red)
                                     )
                                 }
                             }
@@ -158,6 +159,27 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                             )
                         }
 
+                        // Warning message
+                        AnimatedVisibility(visible =!hasEnoughBalance) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Spacer(Modifier.height(12.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "Insufficient balance for this bet",
+                                        color = Color.Red,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+
                         Spacer(Modifier.height(36.dp))
 
                         val playInteraction = remember { MutableInteractionSource() }
@@ -167,49 +189,44 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                                 .height(56.dp)
                                 .clip(RoundedCornerShape(28.dp))
                                 .background(
-                                    brush = Brush.horizontalGradient(
-                                        listOf(
-                                            Color(0xFF38ef7d),
-                                            Color(0xFF11998e)
-                                        )
-                                    ),
+                                    brush = if (hasEnoughBalance)
+                                        Brush.horizontalGradient(listOf(Color(0xFF38ef7d), Color(0xFF11998e)))
+                                    else
+                                        Brush.horizontalGradient(listOf(Color.Gray.copy(alpha = 0.4f), Color.Gray.copy(alpha = 0.4f))),
                                     shape = RoundedCornerShape(28.dp)
                                 )
                                 .border(
                                     2.dp,
-                                    Color.White.copy(alpha = 0.3f),
+                                    if (hasEnoughBalance) Color.White.copy(alpha = 0.3f) else Color.Transparent,
                                     RoundedCornerShape(28.dp)
                                 )
                                 .clickable(
+                                    enabled = hasEnoughBalance,
                                     interactionSource = playInteraction,
                                     indication = null
-                                ) { onPlay(selectedVariation, betAmount) },
+                                ) { onPlayBet(betAmount) }, // 👈 onPlay -> onPlayBet
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "PLAY",
+                                if (hasEnoughBalance) "PLAY" else "INSUFFICIENT BALANCE",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 18.sp,
                                 letterSpacing = 2.sp,
-                                color = Color.White
+                                color = if (hasEnoughBalance) Color.White else Color.White.copy(alpha = 0.5f)
                             )
                         }
                     }
                 }
             }
 
+            // 4 PLAYERS Badge
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(y = (-18).dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(
-                        brush = Brush.horizontalGradient(
-                            listOf(
-                                Color(0xFFFF7B25),
-                                Color(0xFFFFA500)
-                            )
-                        ),
+                        brush = Brush.horizontalGradient(listOf(Color(0xFFFF7B25), Color(0xFFFFA500))),
                         shape = RoundedCornerShape(14.dp)
                     )
                     .border(2.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
@@ -224,6 +241,7 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                 )
             }
 
+            // Close Button
             val closeInteraction = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
@@ -243,56 +261,6 @@ fun GameSetupDialog(onDismiss: () -> Unit = {}, onPlay: (String, Int) -> Unit = 
                 Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
         }
-    }
-}
-
-@Composable
-fun VariationChip(
-    text: String,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed = interactionSource.collectIsPressedAsState().value
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = tween(100),
-        label = "chip_scale"
-    )
-
-    Box(
-        modifier = modifier
-            .height(44.dp)
-            .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                brush = if (isSelected)
-                    Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFB700)))
-                else
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.08f),
-                            Color.White.copy(alpha = 0.08f)
-                        )
-                    ),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .border(
-                if (isSelected) 2.5.dp else 1.5.dp,
-                if (isSelected) Color.White else Color.White.copy(alpha = 0.2f),
-                RoundedCornerShape(12.dp)
-            )
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text,
-            color = if (isSelected) Color(0xFF1A252F) else Color.White,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 1.sp
-        )
     }
 }
 
@@ -319,21 +287,11 @@ fun PremiumCircleButton(
                 brush = if (enabled)
                     Brush.radialGradient(listOf(Color(0xFF9B59B6), Color(0xFF8E44AD)))
                 else
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Gray.copy(alpha = 0.3f),
-                            Color.Gray.copy(alpha = 0.3f)
-                        )
-                    ),
+                    Brush.horizontalGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f))),
                 shape = CircleShape
             )
             .border(2.dp, Color.White.copy(alpha = if (enabled) 0.3f else 0.1f), CircleShape)
-            .clickable(
-                enabled = enabled,
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
+            .clickable(enabled = enabled, interactionSource = interactionSource, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
@@ -342,6 +300,8 @@ fun PremiumCircleButton(
 
 @Preview(showBackground = true)
 @Composable
-fun GameSetupDialogPreview() {
-    GameSetupDialog()
+fun FourPlayerDialogPreview() {
+    FourPlayerDialog(
+        walletBalance = 2450 // 👈 coins -> walletBalance
+    )
 }

@@ -37,24 +37,24 @@ import com.example.final_for_ind.screens.component.BottomNavBar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    coins: Int = 1250,
+    coins: Int = 1250, // 👈 yehi wallet balance hai
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onGameModeClick: (String, Int) -> Unit,
+    onGameModeClick: (String, Int) -> Unit, // 👈 gameMode, betAmount
     onCoinsClick: () -> Unit = {},
     onNavItemClick: (String) -> Unit = {},
     onFriendsClick: () -> Unit = {}
 ) {
     var showBotDialog by remember { mutableStateOf(false) }
+    var showTwoPlayerDialog by remember { mutableStateOf(false) } // 👈 2P dialog state
+    var showFourPlayerDialog by remember { mutableStateOf(false) } // 👈 4P dialog state
 
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
     )
 
     Scaffold(
-        bottomBar = {
-            BottomNavBar(currentRoute = "home", onNavigate = onNavItemClick)
-        },
+        bottomBar = { BottomNavBar(currentRoute = "home", onNavigate = onNavItemClick) },
         containerColor = Color.Transparent
     ) { innerPadding ->
         Box(
@@ -64,90 +64,57 @@ fun HomeScreen(
                 .padding(innerPadding)
         ) {
 
+            // Top Bar - same as before
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
+                        modifier = Modifier.size(52.dp).clip(CircleShape)
                             .background(color = Color.White.copy(alpha = 0.1f), shape = CircleShape)
                             .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
                             .clickable { onProfileClick() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            Icons.Default.Person,
-                            "Profile",
-                            Modifier.size(28.dp),
-                            tint = Color.White
-                        )
+                        Icon(Icons.Default.Person, "Profile", Modifier.size(28.dp), tint = Color.White)
                     }
 
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Card(
-                        modifier = Modifier
-                            .height(38.dp)
-                            .clickable { onCoinsClick() },
+                        modifier = Modifier.height(38.dp).clickable { onCoinsClick() },
                         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                         shape = RoundedCornerShape(20.dp)
                     ) {
                         Box(
-                            modifier = Modifier
-                                .background(
-                                    brush = Brush.horizontalGradient(
-                                        listOf(
-                                            Color(0xFFFFD700),
-                                            Color(0xFFFFB700)
-                                        )
-                                    ),
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                            modifier = Modifier.background(
+                                brush = Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFB700))),
+                                shape = RoundedCornerShape(20.dp)
+                            ).padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Star,
-                                    "Coins",
-                                    tint = Color(0xFF8B5A00),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                Icon(Icons.Default.Star, "Coins", tint = Color(0xFF8B5A00), modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    "$coins",
-                                    color = Color(0xFF8B5A00),
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
+                                Text("$coins", color = Color(0xFF8B5A00), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                             }
                         }
                     }
                 }
 
                 Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
+                    modifier = Modifier.size(52.dp).clip(CircleShape)
                         .background(color = Color.White.copy(alpha = 0.1f), shape = CircleShape)
                         .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
                         .clickable { onSettingsClick() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        "Settings",
-                        tint = Color.White,
-                        modifier = Modifier.size(26.dp)
-                    )
+                    Icon(Icons.Default.Settings, "Settings", tint = Color.White, modifier = Modifier.size(26.dp))
                 }
             }
 
+            // Game Mode Cards
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -167,12 +134,13 @@ fun HomeScreen(
                             "2 Players",
                             Icons.Default.Person,
                             Brush.linearGradient(listOf(Color(0xFF11998e), Color(0xFF38ef7d)))
-                        ) { onGameModeClick("2P", 0) }
+                        ) { showTwoPlayerDialog = true } // 👈 Dialog khole ga
+
                         GameModeCard(
                             "4 Players",
                             Icons.Default.Group,
                             Brush.linearGradient(listOf(Color(0xFF00c9ff), Color(0xFF92fe9d)))
-                        ) { onGameModeClick("4P", 0) }
+                        ) { showFourPlayerDialog = true } // 👈 Dialog khole ga
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                         GameModeCard(
@@ -189,43 +157,49 @@ fun HomeScreen(
                 }
             }
 
+            // Bot Dialog - same
             if (showBotDialog) {
                 AlertDialog(
                     onDismissRequest = { showBotDialog = false },
                     containerColor = Color(0xFF2C3E50),
                     shape = RoundedCornerShape(20.dp),
-                    title = {
-                        Text(
-                            "Confirm Match",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp
-                        )
-                    },
-                    text = {
-                        Text(
-                            "Are you sure?\nMatch fee: 25 coins",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = 16.sp
-                        )
-                    },
+                    title = { Text("Confirm Match", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                    text = { Text("Are you sure?\nMatch fee: 25 coins", color = Color.White.copy(alpha = 0.8f), fontSize = 16.sp) },
                     confirmButton = {
                         TextButton(onClick = {
                             showBotDialog = false
                             onGameModeClick("Bot", 25)
-                        }) {
-                            Text(
-                                "Yes",
-                                color = Color(0xFF38ef7d),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
+                        }) { Text("Yes", color = Color(0xFF38ef7d), fontWeight = FontWeight.Bold, fontSize = 16.sp) }
                     },
                     dismissButton = {
                         TextButton(onClick = { showBotDialog = false }) {
                             Text("No", color = Color.White.copy(alpha = 0.7f), fontSize = 16.sp)
                         }
+                    }
+                )
+            }
+
+            // 👇 2 Player Dialog
+            if (showTwoPlayerDialog) {
+                TwoPlayerDialog(
+                    gameMode = "2P",
+                    walletBalance = coins, // 👈 HomeScreen ka coins pass
+                    onDismiss = { showTwoPlayerDialog = false },
+                    onStartGame = { mode, bet ->
+                        showTwoPlayerDialog = false
+                        onGameModeClick(mode, bet) // 👈 Game start
+                    }
+                )
+            }
+
+            // 👇 4 Player Dialog
+            if (showFourPlayerDialog) {
+                FourPlayerDialog(
+                    walletBalance = coins, // 👈 HomeScreen ka coins pass
+                    onDismiss = { showFourPlayerDialog = false },
+                    onPlayBet = { bet ->
+                        showFourPlayerDialog = false
+                        onGameModeClick("4P", bet) // 👈 Game start
                     }
                 )
             }
@@ -244,17 +218,14 @@ fun GameModeCard(text: String, icon: ImageVector, gradient: Brush, onClick: () -
     )
 
     Card(
-        modifier = Modifier
-            .size(150.dp)
-            .scale(scale)
-            .shadow(12.dp, RoundedCornerShape(24.dp)) // <- elevation ki jagah shadow
+        modifier = Modifier.size(150.dp).scale(scale)
+            .shadow(12.dp, RoundedCornerShape(24.dp))
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .background(brush = gradient, shape = RoundedCornerShape(24.dp))
                 .border(2.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp)),
             contentAlignment = Alignment.Center
@@ -262,13 +233,7 @@ fun GameModeCard(text: String, icon: ImageVector, gradient: Brush, onClick: () -
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(icon, text, tint = Color.White, modifier = Modifier.size(36.dp))
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text,
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
+                Text(text, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             }
         }
     }
@@ -278,10 +243,11 @@ fun GameModeCard(text: String, icon: ImageVector, gradient: Brush, onClick: () -
 @Composable
 fun HomeScreenPreview() {
     HomeScreen(
-        coins = 1000,
+        coins = 3500,
         onProfileClick = {},
         onSettingsClick = {},
-        onGameModeClick = { _, _ -> },
+        onGameModeClick = { mode, bet -> },
         onNavItemClick = {},
-        onFriendsClick = {})
+        onFriendsClick = {}
+    )
 }

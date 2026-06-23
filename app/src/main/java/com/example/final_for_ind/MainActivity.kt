@@ -38,7 +38,8 @@ import com.example.final_for_ind.screens.component.InternationalPayment
 import com.example.final_for_ind.screens.component.WithdrawScreen
 import com.example.final_for_ind.screens.deposit.DepositScreen
 import com.example.final_for_ind.screens.dice_board.LudoGame
-import com.example.final_for_ind.screens.home_lobby.GameSetupDialog
+import com.example.final_for_ind.screens.home_lobby.FourPlayerDialog // 👈 Updated import
+import com.example.final_for_ind.screens.home_lobby.TwoPlayerDialog // 👈 Updated import
 import com.example.final_for_ind.screens.home_lobby.HomeScreen
 import com.example.final_for_ind.screens.login_frame.First_Screen
 import com.example.final_for_ind.screens.login_frame.IntroSec
@@ -140,12 +141,25 @@ class MainActivity : ComponentActivity() {
                             coins = userCoins,
                             onProfileClick = { navController.navigate("profile") },
                             onSettingsClick = { navController.navigate("settings") },
-                            onGameModeClick = { mode, _ ->
-                                Log.d("GAME_MODE", "Selected: $mode")
-                                if (mode == "2P" || mode == "4P") {
-                                    navController.navigate("setup/$mode")
+                            onGameModeClick = { mode, bet ->
+                                Log.d("GAME_MODE", "Selected: $mode, Bet: $bet")
+                                if (bet > 0) {
+                                    // Dialog se bet aa gaya, direct game me bhejo
+                                    if (userCoins >= bet) {
+                                        userCoins -= bet
+                                        navController.navigate("game/$mode/$bet") {
+                                            popUpTo("home") { inclusive = false }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
+                                    }
                                 } else {
-                                    navController.navigate("game/$mode/0")
+                                    // Bet 0 hai to dialog khole ga
+                                    if (mode == "2P" || mode == "4P") {
+                                        navController.navigate("setup/$mode")
+                                    } else {
+                                        navController.navigate("game/$mode/0")
+                                    }
                                 }
                             },
                             onCoinsClick = { showCoinsDialog = true },
@@ -232,36 +246,45 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // 👇 UPDATED: Ab mode ke hisaab se dialog khule ga
                     composable(
                         "setup/{mode}",
                         arguments = listOf(navArgument("mode") { type = NavType.StringType })
                     ) { backStackEntry ->
                         val mode = backStackEntry.arguments?.getString("mode") ?: "2P"
 
-                        GameSetupDialog(
-                            onDismiss = { navController.popBackStack() },
-                            onPlay = { variation, bet ->
-
-                                val finalMode = when (variation) {
-                                    "CLASSIC" -> "4P"
-                                    "AK47" -> "2P"
-                                    "JOKER" -> "4P"
-                                    "MUFLIS" -> "2P"
-                                    else -> mode
-                                }
-
-
-                                if (userCoins >= bet) {
-                                    userCoins -= bet
-                                    navController.navigate("game/$finalMode/$bet") {
-                                        popUpTo("setup/$mode") { inclusive = true }
+                        if (mode == "2P") {
+                            TwoPlayerDialog(
+                                gameMode = "2P",
+                                walletBalance = userCoins,
+                                onDismiss = { navController.popBackStack() },
+                                onStartGame = { gameMode, bet ->
+                                    if (userCoins >= bet) {
+                                        userCoins -= bet
+                                        navController.navigate("game/$gameMode/$bet") {
+                                            popUpTo("setup/$mode") { inclusive = true }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
                                     }
-                                } else {
-                                    Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT)
-                                        .show()
                                 }
-                            }
-                        )
+                            )
+                        } else {
+                            FourPlayerDialog(
+                                walletBalance = userCoins,
+                                onDismiss = { navController.popBackStack() },
+                                onPlayBet = { bet ->
+                                    if (userCoins >= bet) {
+                                        userCoins -= bet
+                                        navController.navigate("game/4P/$bet") {
+                                            popUpTo("setup/$mode") { inclusive = true }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        }
                     }
 
                     composable("wallet") {

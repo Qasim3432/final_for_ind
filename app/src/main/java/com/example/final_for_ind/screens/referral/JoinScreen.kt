@@ -110,7 +110,6 @@ fun JoinReferralScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-
             Box(
                 modifier = Modifier.size(100.dp),
                 contentAlignment = Alignment.Center
@@ -149,14 +148,13 @@ fun JoinReferralScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Referral code lagao aur $bonusCoins bonus coins pao",
+                text = "Enter referral code & get $bonusCoins bonus coins", // 👈 English
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 15.sp,
                 textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(50.dp))
-
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -243,7 +241,7 @@ fun JoinReferralScreen(
             if (error) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "⚠️ Code 6 characters ka hona chahiye",
+                    text = "⚠️ Code must be 6 characters", // 👈 English
                     color = Color.Red,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
@@ -251,7 +249,6 @@ fun JoinReferralScreen(
             }
 
             Spacer(modifier = Modifier.height(36.dp))
-
 
             Box(
                 modifier = Modifier
@@ -319,7 +316,7 @@ fun JoinReferralScreen(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "⚡ Note: Code sirf ek baar use ho sakta hai",
+                    text = "⚡ Note: Code can only be used once", // 👈 English
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center

@@ -43,7 +43,7 @@ fun InviteScreen(
     invitedCount: Int = 3,
     targetCount: Int = 5,
     rewardPerInvite: Int = 100,
-    bonusReward: Int = 500,
+    bonusReward: Int = 50, // 👈 500 ki jaga 50
     onShare: (code: String) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
@@ -77,7 +77,7 @@ fun InviteScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState) // 👈 ye add kia - ab scroll ho ga
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -101,7 +101,6 @@ fun InviteScreen(
             }
 
             Spacer(modifier = Modifier.height(40.dp))
-
 
             Box(
                 modifier = Modifier.size(90.dp),
@@ -131,7 +130,7 @@ fun InviteScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Invite karo, Coins pao 🎁",
+                text = "Invite & Earn Coins 🎁", // 👈 English
                 color = Color.White,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -142,14 +141,13 @@ fun InviteScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Har friend invite pe $rewardPerInvite coins + bonus",
+                text = "Get $rewardPerInvite coins per friend + bonus rewards", // 👈 English
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 15.sp,
                 textAlign = TextAlign.Center
             )
 
             Spacer(modifier = Modifier.height(40.dp))
-
 
             Card(
                 modifier = Modifier
@@ -169,14 +167,13 @@ fun InviteScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Tumhara Referral Code",
+                            text = "Your Referral Code", // 👈 English
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 13.sp,
                             letterSpacing = 1.sp
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
-
 
                         Box(
                             modifier = Modifier
@@ -231,7 +228,7 @@ fun InviteScreen(
                                     Icon(
                                         if (copied) Icons.Default.Done else Icons.Default.ContentCopy,
                                         contentDescription = null,
-                                        tint = if (copied) Color.White else Color.White,
+                                        tint = Color.White,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -240,7 +237,7 @@ fun InviteScreen(
                                         transitionSpec = { fadeIn() togetherWith fadeOut() }
                                     ) { isCopied ->
                                         Text(
-                                            if (isCopied) "Copied!" else "Copy",
+                                            if (isCopied) "Copied!" else "Copy", // 👈 English
                                             color = Color.White,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 14.sp
@@ -248,7 +245,6 @@ fun InviteScreen(
                                     }
                                 }
                             }
-
 
                             Box(
                                 modifier = Modifier
@@ -281,7 +277,7 @@ fun InviteScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        "Share WhatsApp",
+                                        "Share on WhatsApp", // 👈 English
                                         color = Color.White,
                                         fontWeight = FontWeight.ExtraBold,
                                         fontSize = 15.sp
@@ -294,7 +290,6 @@ fun InviteScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -313,7 +308,7 @@ fun InviteScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Progress",
+                                text = "Progress", // 👈 English
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp
@@ -327,7 +322,6 @@ fun InviteScreen(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-
 
                         Box(
                             modifier = Modifier
@@ -367,7 +361,7 @@ fun InviteScreen(
                                 .padding(12.dp)
                         ) {
                             Text(
-                                text = "${targetCount - invitedCount} aur invite pe bonus $bonusReward coins! 🔥",
+                                text = "Invite ${targetCount - invitedCount} more friends for $bonusReward bonus coins! 🔥", // 👈 English + 50
                                 color = Color(0xFFFFD700),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
