@@ -51,26 +51,15 @@ import com.example.final_for_ind.screens.start.SettingScreen
 import com.example.final_for_ind.screens.start.SplashScreen
 import com.example.final_for_ind.screens.start.TermsScreen
 import com.example.final_for_ind.ui.theme.Final_for_indTheme
-import com.google.firebase.FirebaseException
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.PhoneAuthCredential
-import com.google.firebase.auth.PhoneAuthOptions
-import com.google.firebase.auth.PhoneAuthProvider
-import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
-    // 👇 Firebase + Data save karne ke liye
-    private lateinit var auth: FirebaseAuth
-    private var storedVerificationId: String? = null
+    // 👇 IntroSec se aane wale data ko save karne ke liye
     private var pendingNickname: String = ""
-    private var pendingPhone: String = ""
     private var pendingProfileUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        auth = FirebaseAuth.getInstance() // 👈 Firebase init
-
         setContent {
             Final_for_indTheme {
                 val navController = rememberNavController()
@@ -96,7 +85,11 @@ class MainActivity : ComponentActivity() {
                     ) { backStackEntry ->
                         val loggedOut = backStackEntry.arguments?.getBoolean("loggedOut") ?: false
                         First_Screen(
-                            onPlayClick = { navController.navigate("intro") },
+                            onPlayClick = {
+                                navController.navigate("home") {
+                                    popUpTo("first") { inclusive = true } // back press pe dobara first pe na aaye
+                                }
+                            },
                             onJoinCodeClick = { navController.navigate("join") },
                             showLogoutMessage = loggedOut
                         )
@@ -114,24 +107,23 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onSkip = {
-                                navController.navigate("intro") {
+                                navController.navigate("home") {
                                     popUpTo("join") { inclusive = true }
                                 }
                             }
                         )
                     }
 
-                    // 👇 Updated: IntroSec se OTP bhejo
+                    // 👇 Updated: IntroSec se 3 parameters mil rahe hain
                     composable("intro") {
                         IntroSec(onSubmit = { name, phone, profileUri ->
                             pendingNickname = name
                             pendingProfileUri = profileUri
-                            pendingPhone = phone
-                            sendOTP(phone, navController) // 👈 OTP bheja
+                            Log.d("BACKEND_TODO", "Send OTP to $phone for $name, Photo: $profileUri")
+                            navController.navigate("verify/$phone")
                         })
                     }
 
-                    // 👇 Updated: LoginVari ko verify + resend dono diye
                     composable(
                         "verify/{phone}",
                         arguments = listOf(navArgument("phone") { type = NavType.StringType })
@@ -139,14 +131,13 @@ class MainActivity : ComponentActivity() {
                         val phone = backStackEntry.arguments?.getString("phone") ?: ""
                         LoginVari(
                             phoneNumber = phone,
-                            onVerify = { otp -> verifyOTP(otp, navController) },
-                            onResend = { sendOTP(phone, navController) } // 👈 Dobara OTP
+                            onVerify = { navController.navigate("terms") }
                         )
                     }
 
                     composable("terms") {
                         TermsScreen(onAccept = {
-                            Log.d("BACKEND_TODO", "Save user: $pendingNickname, Phone: $pendingPhone, Photo: $pendingProfileUri")
+                            Log.d("BACKEND_TODO", "Save user: $pendingNickname, Phone saved, Photo: $pendingProfileUri")
                             // Yahan Firebase Firestore me save karo
                             navController.navigate("home") {
                                 popUpTo("splash") { inclusive = true }
@@ -156,6 +147,7 @@ class MainActivity : ComponentActivity() {
 
                     composable("home") {
                         var showCoinsDialog by remember { mutableStateOf(false) }
+
                         HomeScreen(
                             coins = userCoins,
                             onProfileClick = { navController.navigate("profile") },
@@ -185,11 +177,14 @@ class MainActivity : ComponentActivity() {
                             },
                             onFriendsClick = { navController.navigate("create_room/Ali Khan") }
                         )
+
                         if (showCoinsDialog) {
                             AlertDialog(
                                 onDismissRequest = { showCoinsDialog = false },
                                 containerColor = Color(0xFF2C3E50),
-                                title = { Text("Your Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
+                                title = {
+                                    Text("Your Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                                },
                                 text = {
                                     Column {
                                         Text("Total: $userCoins 💰", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
@@ -209,17 +204,24 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    composable("create_room/{friendName}", arguments = listOf(navArgument("friendName") { type = NavType.StringType })) { backStackEntry ->
+                    composable(
+                        "create_room/{friendName}",
+                        arguments = listOf(navArgument("friendName") { type = NavType.StringType })
+                    ) { backStackEntry ->
                         val friendName = backStackEntry.arguments?.getString("friendName") ?: "Friend"
                         CreateRoomScreen(
                             friendName = friendName,
                             onBack = { navController.popBackStack() },
-                            onCreateLink = { Toast.makeText(context, "Room Created!", Toast.LENGTH_SHORT).show() },
+                            onCreateLink = {
+                                Log.d("ROOM", "Room create logic here")
+                                Toast.makeText(context, "Room Created!", Toast.LENGTH_SHORT).show()
+                            },
                             onShareLink = {
                                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, "Join karo Ludo Room! Link: yourapp://room/ABC123 🎮")
                                 }
+
                                 startActivity(Intent.createChooser(sendIntent, "Share Room Link"))
                             },
                             onCopyLink = {
@@ -231,8 +233,12 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    composable("setup/{mode}", arguments = listOf(navArgument("mode") { type = NavType.StringType })) { backStackEntry ->
+                    composable(
+                        "setup/{mode}",
+                        arguments = listOf(navArgument("mode") { type = NavType.StringType })
+                    ) { backStackEntry ->
                         val mode = backStackEntry.arguments?.getString("mode") ?: "2P"
+
                         if (mode == "2P") {
                             TwoPlayerDialog(
                                 gameMode = "2P",
@@ -241,8 +247,12 @@ class MainActivity : ComponentActivity() {
                                 onStartGame = { gameMode, bet ->
                                     if (userCoins >= bet) {
                                         userCoins -= bet
-                                        navController.navigate("game/$gameMode/$bet") { popUpTo("setup/$mode") { inclusive = true } }
-                                    } else Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("game/$gameMode/$bet") {
+                                            popUpTo("setup/$mode") { inclusive = true }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             )
                         } else {
@@ -252,8 +262,12 @@ class MainActivity : ComponentActivity() {
                                 onPlayBet = { bet ->
                                     if (userCoins >= bet) {
                                         userCoins -= bet
-                                        navController.navigate("game/4P/$bet") { popUpTo("setup/$mode") { inclusive = true } }
-                                    } else Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
+                                        navController.navigate("game/4P/$bet") {
+                                            popUpTo("setup/$mode") { inclusive = true }
+                                        }
+                                    } else {
+                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             )
                         }
@@ -262,7 +276,9 @@ class MainActivity : ComponentActivity() {
                     composable("wallet") {
                         DashboardScreen(
                             balance = userCoins,
-                            onNavItemClick = { route -> if (route != "wallet") navController.navigate(route) },
+                            onNavItemClick = { route ->
+                                if (route != "wallet") navController.navigate(route)
+                            },
                             onAddCoinsByUSDT = { navController.navigate("international_payment") },
                             onDeposit = { navController.navigate("deposit") },
                             onWithdraw = { navController.navigate("withdraw") }
@@ -273,6 +289,7 @@ class MainActivity : ComponentActivity() {
                         InternationalPayment(
                             onBack = { navController.popBackStack() },
                             onProceed = { amount, method ->
+                                Log.d("USDT", "Proceed $amount USDT via $method")
                                 userCoins += amount
                                 navController.popBackStack()
                             }
@@ -284,6 +301,7 @@ class MainActivity : ComponentActivity() {
                             currentBalance = userCoins,
                             onBack = { navController.popBackStack() },
                             onDeposit = { amount ->
+                                Log.d("DEPOSIT", "Deposit $amount coins")
                                 userCoins += amount
                                 navController.popBackStack()
                             }
@@ -296,9 +314,12 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onWithdraw = { amount ->
                                 if (userCoins >= amount) {
+                                    Log.d("WITHDRAW", "Withdraw $amount coins")
                                     userCoins -= amount
                                     navController.popBackStack()
-                                } else Toast.makeText(context, "Insufficient balance", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Insufficient balance", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         )
                     }
@@ -307,11 +328,20 @@ class MainActivity : ComponentActivity() {
                         GiftSpinScreen(
                             currentCoins = userCoins,
                             onBack = { navController.popBackStack() },
-                            onRewardClaimed = { coins -> userCoins += coins }
+                            onRewardClaimed = { coins ->
+                                userCoins += coins
+                                Log.d("GIFT", "Won $coins coins")
+                            }
                         )
                     }
 
-                    composable("game/{mode}/{bet}", arguments = listOf(navArgument("mode") { type = NavType.StringType }, navArgument("bet") { type = NavType.IntType })) { backStackEntry ->
+                    composable(
+                        "game/{mode}/{bet}",
+                        arguments = listOf(
+                            navArgument("mode") { type = NavType.StringType },
+                            navArgument("bet") { type = NavType.IntType }
+                        )
+                    ) { backStackEntry ->
                         val mode = backStackEntry.arguments?.getString("mode") ?: "2P"
                         val bet = backStackEntry.arguments?.getInt("bet") ?: 0
                         LudoGame(mode = mode, betAmount = bet)
@@ -323,8 +353,10 @@ class MainActivity : ComponentActivity() {
                             onNavigateToProfile = { navController.navigate("profile") },
                             onNavigateToInvite = { navController.navigate("invite") },
                             onLogout = {
-                                auth.signOut() // 👈 Logout Firebase se bhi
-                                navController.navigate("first?loggedOut=true") { popUpTo("home") { inclusive = true } }
+                                Log.d("BACKEND_TODO", "Clear session & navigate to login")
+                                navController.navigate("first?loggedOut=true") {
+                                    popUpTo("home") { inclusive = true }
+                                }
                             }
                         )
                     }
@@ -340,13 +372,17 @@ class MainActivity : ComponentActivity() {
                                     putExtra(Intent.EXTRA_TEXT, "Join karo Ludo App! Mera referral code: $code. 50 coins bonus mile ga 🎁")
                                     setPackage("com.whatsapp")
                                 }
-                                try { startActivity(intent) }
-                                catch (e: Exception) { Toast.makeText(context, "WhatsApp install nahi hai", Toast.LENGTH_SHORT).show() }
+                                try {
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "WhatsApp install nahi hai", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             onBack = { navController.popBackStack() }
                         )
                     }
 
+                    // 👇 Updated: Profile me ab nickname show ho ga
                     composable("profile") {
                         ProfileScreen(
                             name = pendingNickname.ifEmpty { "John Doe" },
@@ -354,54 +390,14 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() },
                             onBetHistory = { Log.d("BACKEND_TODO", "Open Bet History Screen") },
                             onLogout = {
-                                auth.signOut()
-                                navController.navigate("first?loggedOut=true") { popUpTo("home") { inclusive = true } }
+                                Log.d("BACKEND_TODO", "Clear session & navigate to login")
+                                navController.navigate("first?loggedOut=true") {
+                                    popUpTo("home") { inclusive = true }
+                                }
                             }
                         )
                     }
                 }
-            }
-        }
-    }
-
-    // 👇 Ye 3 function OTP ke liye add kiye hain
-    private fun sendOTP(phone: String, navController: androidx.navigation.NavHostController) {
-        val options = PhoneAuthOptions.newBuilder(auth)
-            .setPhoneNumber(phone) // +92300... format lazmi
-            .setTimeout(60L, TimeUnit.SECONDS)
-            .setActivity(this)
-            .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
-                    storedVerificationId = verificationId
-                    Toast.makeText(this@MainActivity, "OTP Sent!", Toast.LENGTH_SHORT).show()
-                    navController.navigate("verify/$phone")
-                }
-                override fun onVerificationFailed(e: FirebaseException) {
-                    Toast.makeText(this@MainActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-                override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    signInWithPhoneAuthCredential(credential, navController)
-                }
-            }).build()
-        PhoneAuthProvider.verifyPhoneNumber(options)
-    }
-
-    private fun verifyOTP(otp: String, navController: androidx.navigation.NavHostController) {
-        if (storedVerificationId.isNullOrEmpty()) {
-            Toast.makeText(this, "OTP expired. Resend karo", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val credential = PhoneAuthProvider.getCredential(storedVerificationId!!, otp)
-        signInWithPhoneAuthCredential(credential, navController)
-    }
-
-    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential, navController: androidx.navigation.NavHostController) {
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                Toast.makeText(this, "Verified!", Toast.LENGTH_SHORT).show()
-                navController.navigate("terms")
-            } else {
-                Toast.makeText(this, "Wrong OTP", Toast.LENGTH_SHORT).show()
             }
         }
     }
