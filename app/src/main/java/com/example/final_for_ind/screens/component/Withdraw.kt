@@ -15,13 +15,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -45,8 +43,9 @@ fun WithdrawScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    // 👇 BLACK RED GRADIENT
     val bgGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     val quickAmounts = listOf(100, 500, 1000, currentBalance)
@@ -70,70 +69,54 @@ fun WithdrawScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        "Withdraw Coins",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
+                    Text("Withdraw Coins", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFFFFD700)) // 👈 GOLDEN
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color(0xFFFFD700)) // 👈 GOLDEN
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(bgGradient)
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp)
-                .verticalScroll(scrollState)
+            modifier = Modifier.fillMaxSize().background(bgGradient).padding(paddingValues).padding(horizontal = 20.dp).verticalScroll(scrollState)
         ) {
             Spacer(Modifier.height(24.dp))
 
-
+            // BALANCE CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier.background(Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A)))).padding(24.dp) // 👈 BLACK RED
                 ) {
-                    Icon(Icons.Default.Wallet, null, tint = Color(0xFFFFD700), modifier = Modifier.size(32.dp))
-                    Spacer(Modifier.width(16.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Available Balance", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, letterSpacing = 1.sp)
-                        Spacer(Modifier.height(4.dp))
-                        Text("$currentBalance", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
-                        Text("Coins", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Wallet, null, tint = Color(0xFFFFD700), modifier = Modifier.size(32.dp)) // 👈 GOLDEN
+                        Spacer(Modifier.width(16.dp))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Available Balance", color = Color(0xFFFFD700), fontSize = 13.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold) // 👈 GOLDEN
+                            Spacer(Modifier.height(4.dp))
+                            Text("$currentBalance", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("Coins", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(32.dp))
 
-            Text("Enter Amount", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("Enter Amount", color = Color(0xFFFFD700), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) // 👈 GOLDEN
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = amount,
-                onValueChange = { newValue ->
-                    amount = newValue.filter { it.isDigit() }.take(6)
-                },
+                onValueChange = { newValue -> amount = newValue.filter { it.isDigit() }.take(6) },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text("0", color = Color.White.copy(alpha = 0.4f), fontSize = 28.sp) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -141,54 +124,43 @@ fun WithdrawScreen(
                 isError = amount.isNotEmpty() && !isValidAmount,
                 trailingIcon = {
                     TextButton(onClick = { amount = currentBalance.toString() }) {
-                        Text("MAX", color = Color(0xFF00D4FF), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("MAX", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 14.sp) // 👈 GOLDEN
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    focusedBorderColor = if (isValidAmount || amount.isEmpty()) Color(0xFF00D4FF) else Color(0xFFFF5252),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                    cursorColor = Color(0xFF00D4FF),
-                    errorBorderColor = Color(0xFFFF5252)
+                    focusedBorderColor = if (isValidAmount || amount.isEmpty()) Color(0xFFFFD700) else Color(0xFFD32F2F), // 👈 GOLDEN/RED
+                    unfocusedBorderColor = Color(0xFFFFD700).copy(alpha = 0.3f),
+                    cursorColor = Color(0xFFFFD700),
+                    errorBorderColor = Color(0xFFD32F2F)
                 ),
                 shape = RoundedCornerShape(16.dp),
                 textStyle = LocalTextStyle.current.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold)
             )
 
             if (amount.isNotEmpty() && !isValidAmount) {
-                Text(
-                    "Amount exceeds balance",
-                    color = Color(0xFFFF5252),
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 8.dp, top = 6.dp)
-                )
+                Text("Amount exceeds balance", color = Color(0xFFD32F2F), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, top = 6.dp)) // 👈 RED
             }
 
             Spacer(Modifier.height(20.dp))
 
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            // QUICK AMOUNTS
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 quickAmounts.forEach { quickAmount ->
                     FilterChip(
                         selected = amount == quickAmount.toString(),
                         onClick = { amount = quickAmount.toString() },
                         label = {
-                            Text(
-                                if (quickAmount == currentBalance) "All" else "$quickAmount",
-                                fontWeight = if (amount == quickAmount.toString()) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Text(if (quickAmount == currentBalance) "All" else "$quickAmount", fontWeight = if (amount == quickAmount.toString()) FontWeight.Bold else FontWeight.Medium)
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF00D4FF),
-                            selectedLabelColor = Color.Black,
-                            containerColor = Color.White.copy(alpha = 0.1f),
+                            selectedContainerColor = Color(0xFFFFD700), // 👈 GOLDEN
+                            selectedLabelColor = Color(0xFF1A0000), // 👈 DARK RED
+                            containerColor = Color(0xFF2B0000), // 👈 DARK RED
                             labelColor = Color.White
                         ),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                        border = BorderStroke(2.dp, Color(0xFFFFD700)), // 👈 GOLDEN
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     )
@@ -197,36 +169,25 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(36.dp))
 
-            Text("Select Withdrawal Method", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("Select Withdrawal Method", color = Color(0xFFFFD700), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) // 👈 GOLDEN
             Spacer(Modifier.height(14.dp))
-
 
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 paymentMethods.forEach { method ->
                     val isSelected = selectedMethod?.name == method.name
                     val bgColor by animateColorAsState(
-                        if (isSelected) Color(0xFF00D4FF).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                        if (isSelected) Color(0xFFFFD700).copy(alpha = 0.15f) else Color(0xFF2B0000).copy(alpha = 0.6f), // 👈 GOLDEN/RED
                         label = "bg"
                     )
-                    val borderWidth by animateDpAsState(
-                        if (isSelected) 2.dp else 1.dp,
-                        label = "border"
-                    )
+                    val borderWidth by animateDpAsState(if (isSelected) 2.5.dp else 2.dp, label = "border")
 
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedMethod = method },
+                        modifier = Modifier.fillMaxWidth().clickable { selectedMethod = method },
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = bgColor),
-                        border = BorderStroke(borderWidth, if (isSelected) Color(0xFF00D4FF) else Color.White.copy(alpha = 0.1f))
+                        border = BorderStroke(borderWidth, if (isSelected) Color(0xFFFFD700) else Color(0xFFFFD700).copy(alpha = 0.4f)) // 👈 GOLDEN
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(method.icon, fontSize = 28.sp)
                             Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -234,13 +195,9 @@ fun WithdrawScreen(
                                 Text(method.country, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
                             }
                             if (isSelected) {
-                                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF00D4FF), modifier = Modifier.size(24.dp))
+                                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFFFFD700), modifier = Modifier.size(24.dp)) // 👈 GOLDEN
                             } else {
-                                RadioButton(
-                                    selected = false,
-                                    onClick = null,
-                                    colors = RadioButtonDefaults.colors(unselectedColor = Color.White.copy(alpha = 0.3f))
-                                )
+                                RadioButton(selected = false, onClick = null, colors = RadioButtonDefaults.colors(unselectedColor = Color.White.copy(alpha = 0.3f)))
                             }
                         }
                     }
@@ -249,49 +206,33 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(36.dp))
 
-
+            // WITHDRAW BUTTON
             Button(
                 onClick = {
                     if (!canWithdraw) {
-                        Toast.makeText(
-                            context,
-                            if (selectedMethod == null) "Select payment method" else "Enter valid amount",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, if (selectedMethod == null) "Select payment method" else "Enter valid amount", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
                     onWithdraw(enteredAmount)
                     onBack()
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp),
+                modifier = Modifier.fillMaxWidth().height(58.dp),
                 enabled = canWithdraw,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,
-                    disabledContainerColor = Color.White.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(16.dp),
-                contentPadding = PaddingValues()
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, disabledContainerColor = Color.White.copy(alpha = 0.1f)),
+                shape = RoundedCornerShape(18.dp),
+                contentPadding = PaddingValues(),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            if (canWithdraw)
-                                Brush.horizontalGradient(listOf(Color(0xFF00D4FF), Color(0xFF0099CC)))
-                            else
-                                Brush.horizontalGradient(listOf(Color.Gray, Color.Gray))
-                        ),
+                    modifier = Modifier.fillMaxSize().background(
+                        if (canWithdraw)
+                            Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // 👈 RED
+                        else
+                            Brush.horizontalGradient(listOf(Color.Gray, Color.Gray))
+                    ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        "Withdraw Now",
-                        color = if (canWithdraw) Color.Black else Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        letterSpacing = 0.5.sp
-                    )
+                    Text("Withdraw Now", color = if (canWithdraw) Color.White else Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, letterSpacing = 0.5.sp)
                 }
             }
 
@@ -300,7 +241,7 @@ fun WithdrawScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun WithdrawPreview() {
     WithdrawScreen()

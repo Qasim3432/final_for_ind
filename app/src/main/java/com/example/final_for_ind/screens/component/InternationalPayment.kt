@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CurrencyExchange
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,8 +47,9 @@ fun InternationalPayment(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    // 👇 BLACK RED GRADIENT
     val bgGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     val usdtMethods = listOf(
@@ -66,65 +66,56 @@ fun InternationalPayment(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Add Coins by USDT", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text("Add Coins by USDT", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFFFFD700)) // 👈 GOLDEN
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color(0xFFFFD700)) // 👈 GOLDEN
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
-        //jhfsdjfhsifoie
         containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(bgGradient)
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp)
-                .verticalScroll(scrollState)
+            modifier = Modifier.fillMaxSize().background(bgGradient).padding(paddingValues).padding(horizontal = 20.dp).verticalScroll(scrollState)
         ) {
             Spacer(Modifier.height(24.dp))
 
-
+            // RATE CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF26A17B).copy(alpha = 0.1f)),
-                border = BorderStroke(1.dp, Color(0xFF26A17B).copy(alpha = 0.3f))
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Box(
+                    modifier = Modifier.background(Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A)))).padding(24.dp) // 👈 BLACK RED
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CurrencyExchange, null, tint = Color(0xFF26A17B), modifier = Modifier.size(32.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Live USDT Rate", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, letterSpacing = 1.sp)
+                    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CurrencyExchange, null, tint = Color(0xFFFFD700), modifier = Modifier.size(32.dp)) // 👈 GOLDEN
+                            Spacer(Modifier.width(12.dp))
+                            Text("Live USDT Rate", color = Color(0xFFFFD700), fontSize = 13.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold) // 👈 GOLDEN
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text("1 USDT", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                        Text("= $pkrRate PKR", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text("= $inrRate INR", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Text("1 USDT", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
-                    Text("= $pkrRate PKR", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                    Spacer(Modifier.height(4.dp))
-                    Text("= $inrRate INR", color = Color.White.copy(alpha = 0.8f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
             Spacer(Modifier.height(32.dp))
 
-            Text("Enter USDT Amount", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("Enter USDT Amount", color = Color(0xFFFFD700), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) // 👈 GOLDEN
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = amount,
                 onValueChange = { newValue ->
-                    // Only allow digits and one decimal point
                     val filtered = newValue.filter { it.isDigit() || it == '.' }
                     val parts = filtered.split('.')
                     amount = if (parts.size > 2) parts[0] + "." + parts[1] else filtered
@@ -134,14 +125,14 @@ fun InternationalPayment(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 leadingIcon = {
-                    Icon(Icons.Default.CurrencyExchange, null, tint = Color(0xFF26A17B), modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.CurrencyExchange, null, tint = Color(0xFFFFD700), modifier = Modifier.size(28.dp)) // 👈 GOLDEN
                 },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFF26A17B),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                    cursorColor = Color(0xFF26A17B)
+                    focusedBorderColor = Color(0xFFFFD700), // 👈 GOLDEN
+                    unfocusedBorderColor = Color(0xFFFFD700).copy(alpha = 0.3f),
+                    cursorColor = Color(0xFFFFD700)
                 ),
                 shape = RoundedCornerShape(16.dp),
                 textStyle = LocalTextStyle.current.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold)
@@ -151,15 +142,16 @@ fun InternationalPayment(
                 Spacer(Modifier.height(10.dp))
                 Card(
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF26A17B).copy(alpha = 0.08f))
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF8B0000).copy(alpha = 0.2f)), // 👈 DARK RED
+                    border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.3f)) // 👈 GOLDEN
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Text("You will receive ≈", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
                         Spacer(Modifier.height(4.dp))
                         Row {
-                            Text("${(usdtAmount * pkrRate).toInt()} PKR", color = Color(0xFF26A17B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("${(usdtAmount * pkrRate).toInt()} PKR", color = Color(0xFFFFD700), fontSize = 16.sp, fontWeight = FontWeight.Bold) // 👈 GOLDEN
                             Spacer(Modifier.width(16.dp))
-                            Text("${(usdtAmount * inrRate).toInt()} INR", color = Color(0xFF26A17B), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("${(usdtAmount * inrRate).toInt()} INR", color = Color(0xFFFFD700), fontSize = 16.sp, fontWeight = FontWeight.Bold) // 👈 GOLDEN
                         }
                     }
                 }
@@ -167,33 +159,25 @@ fun InternationalPayment(
 
             Spacer(Modifier.height(36.dp))
 
-            Text("Select Payment Method", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("Select Payment Method", color = Color(0xFFFFD700), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) // 👈 GOLDEN
             Spacer(Modifier.height(14.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 usdtMethods.forEach { method ->
                     val isSelected = selectedMethod?.name == method.name
                     val bgColor by animateColorAsState(
-                        if (isSelected) Color(0xFF26A17B).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                        if (isSelected) Color(0xFFFFD700).copy(alpha = 0.15f) else Color(0xFF2B0000).copy(alpha = 0.6f), // 👈 GOLDEN/RED
                         label = "bg"
                     )
-                    val borderWidth by animateDpAsState(
-                        if (isSelected) 2.dp else 1.dp,
-                        label = "border"
-                    )
+                    val borderWidth by animateDpAsState(if (isSelected) 2.5.dp else 2.dp, label = "border")
 
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { selectedMethod = method },
+                        modifier = Modifier.fillMaxWidth().clickable { selectedMethod = method },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = bgColor),
-                        border = BorderStroke(borderWidth, if (isSelected) Color(0xFF26A17B) else Color.White.copy(alpha = 0.1f))
+                        border = BorderStroke(borderWidth, if (isSelected) Color(0xFFFFD700) else Color(0xFFFFD700).copy(alpha = 0.4f)) // 👈 GOLDEN
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(method.icon, fontSize = 32.sp)
                             Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -203,7 +187,7 @@ fun InternationalPayment(
                             RadioButton(
                                 selected = isSelected,
                                 onClick = null,
-                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFF26A17B), unselectedColor = Color.White.copy(alpha = 0.3f))
+                                colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFFD700), unselectedColor = Color.White.copy(alpha = 0.3f)) // 👈 GOLDEN
                             )
                         }
                     }
@@ -212,7 +196,7 @@ fun InternationalPayment(
 
             Spacer(Modifier.height(36.dp))
 
-
+            // PROCEED BUTTON
             Button(
                 onClick = {
                     val usdtAmountDouble = amount.toDoubleOrNull()
@@ -226,23 +210,22 @@ fun InternationalPayment(
                 enabled = canProceed,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues()
+                contentPadding = PaddingValues(),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            if (canProceed)
-                                Brush.horizontalGradient(listOf(Color(0xFF26A17B), Color(0xFF50AF95)))
-                            else
-                                Brush.horizontalGradient(listOf(Color.Gray, Color.Gray))
-                        ),
+                    modifier = Modifier.fillMaxSize().background(
+                        if (canProceed)
+                            Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // 👈 RED
+                        else
+                            Brush.horizontalGradient(listOf(Color.Gray, Color.Gray))
+                    ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         "Proceed to Payment",
                         color = if (canProceed) Color.White else Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp,
                         letterSpacing = 0.5.sp
                     )
@@ -251,21 +234,22 @@ fun InternationalPayment(
 
             Spacer(Modifier.height(24.dp))
 
-
+            // WARNING CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFD700).copy(alpha = 0.08f)),
-                border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.3f))
+                border = BorderStroke(2.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Default.Warning, null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.Warning, null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp)) // 👈 GOLDEN
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = "Only send USDT on TRC20 network. BEP20/ERC20 will cause loss of funds.",
-                        color = Color(0xFFFFD700),
+                        color = Color(0xFFFFD700), // 👈 GOLDEN
                         fontSize = 13.sp,
-                        lineHeight = 18.sp
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -275,7 +259,7 @@ fun InternationalPayment(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun InternationalPaymentPreview() {
     InternationalPayment()

@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,8 +51,9 @@ fun IntroSec(
         profileImageUri = uri
     }
 
+    // 👇 BLACK RED GRADIENT
     val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     val isFormValid = nickname.isNotBlank() && phone.length >= 10 && countryCode.startsWith("+")
@@ -63,18 +65,18 @@ fun IntroSec(
         Card(
             modifier = Modifier.fillMaxWidth(0.88f).shadow(24.dp, RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN BORDER
         ) {
             Box(
                 modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(28.dp))
+                    .background(brush = Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A))), shape = RoundedCornerShape(28.dp))
                     .padding(32.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Create Profile",
-                        color = Color.White,
+                        color = Color(0xFFFFD700), // 👈 GOLDEN
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 0.5.sp
@@ -82,7 +84,7 @@ fun IntroSec(
 
                     Text(
                         text = "Setup your gaming identity",
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = Color.White.copy(alpha = 0.7f),
                         fontSize = 13.sp,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -96,8 +98,8 @@ fun IntroSec(
                         }
                         Box(
                             modifier = Modifier.size(110.dp).clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                                .border(2.dp, Color.White.copy(alpha = 0.2f), CircleShape)
+                                .background(Color(0xFF2B0000), CircleShape) // 👈 DARK RED
+                                .border(2.5.dp, Color(0xFFFFD700), CircleShape) // 👈 GOLDEN BORDER
                                 .clickable { imagePicker.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
@@ -109,16 +111,17 @@ fun IntroSec(
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                Icon(Icons.Default.CameraAlt, "Upload Photo", Modifier.size(40.dp), tint = Color.White.copy(alpha = 0.7f))
+                                Icon(Icons.Default.CameraAlt, "Upload Photo", Modifier.size(40.dp), tint = Color(0xFFFFD700))
                             }
                         }
                         Box(
                             modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).clip(CircleShape)
-                                .background(Color(0xFFFFD700), CircleShape)
+                                .background(brush = Brush.linearGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))), CircleShape) // 👈 GOLDEN
+                                .border(2.dp, Color(0xFFFFD700), CircleShape)
                                 .clickable { imagePicker.launch("image/*") },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.CameraAlt, null, tint = Color(0xFF1A252F), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.CameraAlt, null, tint = Color(0xFF1A0000), modifier = Modifier.size(16.dp))
                         }
                     }
 
@@ -141,11 +144,8 @@ fun IntroSec(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // Phone with Country Code - Keyboard Input
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    // Phone with Country Code
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(
                             value = countryCode,
                             onValueChange = {
@@ -153,17 +153,15 @@ fun IntroSec(
                             },
                             modifier = Modifier.width(95.dp),
                             label = { Text("Code", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp) },
-                            leadingIcon = {
-                                Icon(Icons.Default.Phone, null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp))
-                            },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                focusedContainerColor = Color(0xFF2B0000), // 👈 DARK RED
+                                unfocusedContainerColor = Color(0xFF2B0000).copy(alpha = 0.7f),
                                 focusedBorderColor = Color(0xFFFFD700),
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                unfocusedBorderColor = Color(0xFFFFD700).copy(alpha = 0.5f),
                                 focusedLabelColor = Color(0xFFFFD700),
                                 cursorColor = Color(0xFFFFD700)
                             ),
@@ -185,10 +183,10 @@ fun IntroSec(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                                unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                focusedContainerColor = Color(0xFF2B0000), // 👈 DARK RED
+                                unfocusedContainerColor = Color(0xFF2B0000).copy(alpha = 0.7f),
                                 focusedBorderColor = Color(0xFFFFD700),
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                unfocusedBorderColor = Color(0xFFFFD700).copy(alpha = 0.5f),
                                 focusedLabelColor = Color(0xFFFFD700),
                                 cursorColor = Color(0xFFFFD700)
                             ),
@@ -199,11 +197,7 @@ fun IntroSec(
                     }
 
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "Example: +92 or +91",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 11.sp
-                    )
+                    Text(text = "Example: +92 or +91", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
 
                     Spacer(Modifier.height(24.dp))
 
@@ -234,17 +228,15 @@ fun GlassTextField(
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         label = { Text(label, color = Color.White.copy(alpha = 0.6f)) },
-        leadingIcon = {
-            Icon(icon, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp))
-        },
+        leadingIcon = { Icon(icon, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp)) },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = Color.White,
             unfocusedTextColor = Color.White,
-            focusedContainerColor = Color.White.copy(alpha = 0.08f),
-            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
+            focusedContainerColor = Color(0xFF2B0000), // 👈 DARK RED
+            unfocusedContainerColor = Color(0xFF2B0000).copy(alpha = 0.7f),
             focusedBorderColor = Color(0xFFFFD700),
-            unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+            unfocusedBorderColor = Color(0xFFFFD700).copy(alpha = 0.5f),
             focusedLabelColor = Color(0xFFFFD700),
             cursorColor = Color(0xFFFFD700)
         ),
@@ -261,26 +253,19 @@ fun PremiumSubmitButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = tween(100),
-        label = "scale"
-    )
+    val scale by animateFloatAsState(targetValue = if (isPressed) 0.97f else 1f, animationSpec = tween(100))
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .scale(scale)
-            .clip(RoundedCornerShape(18.dp))
+            .fillMaxWidth().height(58.dp).scale(scale).clip(RoundedCornerShape(18.dp))
             .background(
                 brush = if (enabled)
-                    Brush.horizontalGradient(listOf(Color(0xFF38ef7d), Color(0xFF11998e)))
+                    Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // 👈 RED
                 else
                     Brush.horizontalGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f))),
                 shape = RoundedCornerShape(18.dp)
             )
-            .border(2.dp, if (enabled) Color.White.copy(alpha = 0.3f) else Color.Transparent, RoundedCornerShape(18.dp))
+            .border(2.5.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp)) // 👈 GOLDEN BORDER
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -294,11 +279,8 @@ fun PremiumSubmitButton(
     }
 }
 
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun IntroSecPreview() {
-    IntroSec(onSubmit = { name, phone, uri ->
-        // Preview ke liye kuch nahi karna
-    })
+    IntroSec(onSubmit = { name, phone, uri -> })
 }

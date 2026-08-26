@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,9 +45,10 @@ import com.example.final_for_ind.screens.home_lobby.TwoPlayerDialog
 import com.example.final_for_ind.screens.home_lobby.HomeScreen
 import com.example.final_for_ind.screens.login_frame.First_Screen
 import com.example.final_for_ind.screens.login_frame.IntroSec
+import com.example.final_for_ind.screens.login_frame.LoginScreen
 import com.example.final_for_ind.screens.login_frame.LoginVari
 import com.example.final_for_ind.screens.profile.ProfileScreen
-import com.example.final_for_ind.screens.referral.JoinReferralScreen
+import com.example.final_for_ind.screens.referral.JoinReferralPopup
 import com.example.final_for_ind.screens.start.SettingScreen
 import com.example.final_for_ind.screens.start.SplashScreen
 import com.example.final_for_ind.screens.start.TermsScreen
@@ -54,7 +56,6 @@ import com.example.final_for_ind.ui.theme.Final_for_indTheme
 
 class MainActivity : ComponentActivity() {
 
-    // 👇 IntroSec se aane wale data ko save karne ke liye
     private var pendingNickname: String = ""
     private var pendingProfileUri: Uri? = null
 
@@ -64,7 +65,10 @@ class MainActivity : ComponentActivity() {
             Final_for_indTheme {
                 val navController = rememberNavController()
                 val context = LocalContext.current
-                var userCoins by remember { mutableStateOf(1250) }
+                var userCoins by remember { mutableStateOf(0) }
+                var isLoggedIn by remember { mutableStateOf(false) }
+                var showReferralPopup by remember { mutableStateOf(false) }
+                var cameFromRegister by remember { mutableStateOf(false) }
 
                 NavHost(navController = navController, startDestination = "splash") {
 
@@ -86,39 +90,43 @@ class MainActivity : ComponentActivity() {
                         val loggedOut = backStackEntry.arguments?.getBoolean("loggedOut") ?: false
                         First_Screen(
                             onPlayClick = {
+                                isLoggedIn = false
                                 navController.navigate("home") {
-                                    popUpTo("first") { inclusive = true } // back press pe dobara first pe na aaye
+                                    popUpTo("first") { inclusive = true }
                                 }
                             },
-                            onJoinCodeClick = { navController.navigate("join") },
+                            onJoinCodeClick = { showReferralPopup = true },
                             showLogoutMessage = loggedOut
                         )
                     }
 
-                    composable("join") {
-                        JoinReferralScreen(
-                            bonusCoins = 50,
-                            onReferralApplied = { code ->
-                                Log.d("REFERRAL", "Code entered: $code")
-                                userCoins += 50
-                                Toast.makeText(context, "Referral code: $code applied +50 coins", Toast.LENGTH_SHORT).show()
-                                navController.navigate("intro") {
-                                    popUpTo("join") { inclusive = true }
+                    composable("login") {
+                        LoginScreen(
+                            onLogin = { email, password, name ->
+                                isLoggedIn = true
+                                pendingNickname = name
+                                Log.d("LOGIN", "Email: $email, Name: $name")
+                                Toast.makeText(context, "Welcome $name", Toast.LENGTH_SHORT).show()
+                                navController.navigate("home") {
+                                    popUpTo("first") { inclusive = true }
                                 }
                             },
-                            onSkip = {
-                                navController.navigate("home") {
-                                    popUpTo("join") { inclusive = true }
-                                }
-                            }
+                            onSignUpClick = { navController.navigate("intro") }
                         )
                     }
 
-                    // 👇 Updated: IntroSec se 3 parameters mil rahe hain
+                    composable("join") {
+                        LaunchedEffect(Unit) {
+                            showReferralPopup = true
+                            navController.popBackStack()
+                        }
+                    }
+
                     composable("intro") {
                         IntroSec(onSubmit = { name, phone, profileUri ->
                             pendingNickname = name
                             pendingProfileUri = profileUri
+                            cameFromRegister = true
                             Log.d("BACKEND_TODO", "Send OTP to $phone for $name, Photo: $profileUri")
                             navController.navigate("verify/$phone")
                         })
@@ -137,8 +145,10 @@ class MainActivity : ComponentActivity() {
 
                     composable("terms") {
                         TermsScreen(onAccept = {
+                            isLoggedIn = true
                             Log.d("BACKEND_TODO", "Save user: $pendingNickname, Phone saved, Photo: $pendingProfileUri")
-                            // Yahan Firebase Firestore me save karo
+                            showReferralPopup = true
+                            cameFromRegister = true
                             navController.navigate("home") {
                                 popUpTo("splash") { inclusive = true }
                             }
@@ -150,8 +160,10 @@ class MainActivity : ComponentActivity() {
 
                         HomeScreen(
                             coins = userCoins,
+                            isGuest = !isLoggedIn,
                             onProfileClick = { navController.navigate("profile") },
                             onSettingsClick = { navController.navigate("settings") },
+                            onDepositClick = { navController.navigate("deposit") },
                             onGameModeClick = { mode, bet ->
                                 Log.d("GAME_MODE", "Selected: $mode, Bet: $bet")
                                 if (bet > 0) {
@@ -171,11 +183,12 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
-                            onCoinsClick = { showCoinsDialog = true },
                             onNavItemClick = { route ->
                                 if (route != "home") navController.navigate(route)
                             },
-                            onFriendsClick = { navController.navigate("create_room/Ali Khan") }
+                            onFriendsClick = { navController.navigate("create_room/Ali Khan") },
+                            onLoginClick = { navController.navigate("login") },
+                            onSignUpClick = { navController.navigate("intro") }
                         )
 
                         if (showCoinsDialog) {
@@ -189,10 +202,10 @@ class MainActivity : ComponentActivity() {
                                     Column {
                                         Text("Total: $userCoins 💰", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.height(12.dp))
-                                        Text("• Won: 500 coins", color = Color(0xFF25D366))
-                                        Text("• Bonus: ${userCoins - 500} coins", color = Color(0xFF39C12F))
+                                        Text("• Won: 0 coins", color = Color(0xFF25D366))
+                                        Text("• Bonus: 0 coins", color = Color(0xFF39C12F))
                                         Spacer(Modifier.height(8.dp))
-                                        Text("Join premium matches with coins!", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                                        Text("Deposit coins to play premium matches!", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                                     }
                                 },
                                 confirmButton = {
@@ -221,7 +234,6 @@ class MainActivity : ComponentActivity() {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, "Join karo Ludo Room! Link: yourapp://room/ABC123 🎮")
                                 }
-
                                 startActivity(Intent.createChooser(sendIntent, "Share Room Link"))
                             },
                             onCopyLink = {
@@ -353,6 +365,8 @@ class MainActivity : ComponentActivity() {
                             onNavigateToProfile = { navController.navigate("profile") },
                             onNavigateToInvite = { navController.navigate("invite") },
                             onLogout = {
+                                isLoggedIn = false
+                                pendingNickname = ""
                                 Log.d("BACKEND_TODO", "Clear session & navigate to login")
                                 navController.navigate("first?loggedOut=true") {
                                     popUpTo("home") { inclusive = true }
@@ -382,14 +396,15 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 👇 Updated: Profile me ab nickname show ho ga
                     composable("profile") {
                         ProfileScreen(
-                            name = pendingNickname.ifEmpty { "John Doe" },
+                            name = if(isLoggedIn) pendingNickname else "",
                             coins = userCoins,
                             onBack = { navController.popBackStack() },
                             onBetHistory = { Log.d("BACKEND_TODO", "Open Bet History Screen") },
                             onLogout = {
+                                isLoggedIn = false
+                                pendingNickname = ""
                                 Log.d("BACKEND_TODO", "Clear session & navigate to login")
                                 navController.navigate("first?loggedOut=true") {
                                     popUpTo("home") { inclusive = true }
@@ -398,6 +413,27 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+
+                // 👇 POPUP - AB HOME PE HI RAHEGA
+                JoinReferralPopup(
+                    show = showReferralPopup,
+                    bonusCoins = 50,
+                    onReferralApplied = { code ->
+                        Log.d("REFERRAL", "Code entered: $code")
+                        userCoins += 50
+                        Toast.makeText(context, "Referral code: $code applied. +50 coins", Toast.LENGTH_SHORT).show()
+                        showReferralPopup = false
+                        cameFromRegister = false
+                    },
+                    onSkip = {
+                        showReferralPopup = false
+                        cameFromRegister = false
+                    },
+                    onDismiss = {
+                        showReferralPopup = false
+                        cameFromRegister = false
+                    }
+                )
             }
         }
     }

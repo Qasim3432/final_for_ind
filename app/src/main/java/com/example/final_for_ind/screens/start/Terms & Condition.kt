@@ -2,6 +2,7 @@ package com.example.final_for_ind.screens.start
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -35,20 +36,18 @@ import androidx.compose.ui.unit.sp
 fun TermsScreen(onAccept: () -> Unit) {
     var accepted by remember { mutableStateOf(false) }
 
+    // 👇 BLACK RED GRADIENT
     val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     val buttonScale by animateFloatAsState(
         targetValue = if (accepted) 1f else 0.98f,
-        animationSpec = tween(200),
-        label = "button_scale"
+        animationSpec = tween(200)
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient)
+        modifier = Modifier.fillMaxSize().background(gradient)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -59,113 +58,50 @@ fun TermsScreen(onAccept: () -> Unit) {
 
             Box(
                 modifier = Modifier
-                    .size(70.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color(0xFFFFD700).copy(alpha = 0.3f), Color.Transparent)
-                        )
-                    ),
+                    .size(70.dp).clip(CircleShape)
+                    .background(Brush.radialGradient(listOf(Color(0xFFFFD700).copy(alpha = 0.4f), Color.Transparent)))
+                    .border(2.5.dp, Color(0xFFFFD700), CircleShape), // 👈 GOLDEN BORDER
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Gavel,
-                    contentDescription = null,
-                    tint = Color(0xFFFFD700),
-                    modifier = Modifier.size(36.dp)
-                )
+                Icon(Icons.Default.Gavel, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(36.dp)) // 👈 GOLDEN
             }
 
             Spacer(Modifier.height(16.dp))
 
-            Text(
-                text = "Terms & Conditions",
-                color = Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
-            )
+            Text("Terms & Conditions", color = Color(0xFFFFD700), fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp) // 👈 GOLDEN
 
-            Text(
-                text = "Please read carefully before continuing",
-                color = Color.White.copy(alpha = 0.6f),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            Text("Please read carefully before continuing", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
 
             Spacer(Modifier.height(32.dp))
 
-
             Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(0.9f)
-                    .shadow(24.dp, RoundedCornerShape(24.dp)),
+                modifier = Modifier.weight(1f).fillMaxWidth(0.9f).shadow(24.dp, RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN BORDER
             ) {
                 Box(
                     modifier = Modifier
-                        .background(
-                            Color.White.copy(alpha = 0.08f),
-                            RoundedCornerShape(24.dp)
-                        )
-                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
+                        .background(brush = Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A))), shape = RoundedCornerShape(24.dp))
                         .padding(24.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.verticalScroll(rememberScrollState())
-                    ) {
-                        TermItem(
-                            number = 1,
-                            icon = Icons.Default.Security,
-                            text = "App use karne se pehle rules parh lein. Rules na manne pe access restrict ho sakta hai."
-                        )
-
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        TermItem(number = 1, icon = Icons.Default.Security, text = "App use karne se pehle rules parh lein. Rules na manne pe access restrict ho sakta hai.")
                         Spacer(Modifier.height(20.dp))
-
-                        TermItem(
-                            number = 2,
-                            icon = Icons.Default.Block,
-                            text = "Fake data ya OTP share karna sakhti se mana hai. Aisa karne pe account permanent ban."
-                        )
-
+                        TermItem(number = 2, icon = Icons.Default.Block, text = "Fake data ya OTP share karna sakhti se mana hai. Aisa karne pe account permanent ban.")
                         Spacer(Modifier.height(20.dp))
-
-                        TermItem(
-                            number = 3,
-                            icon = Icons.Default.MonetizationOn,
-                            text = "Coins sirf gameplay aur rewards se milenge. Koi external purchase ya hack allow nahi."
-                        )
-
+                        TermItem(number = 3, icon = Icons.Default.MonetizationOn, text = "Coins sirf gameplay aur rewards se milenge. Koi external purchase ya hack allow nahi.")
                         Spacer(Modifier.height(20.dp))
-
-                        TermItem(
-                            number = 4,
-                            icon = Icons.Default.CheckCircle,
-                            text = "Hamara haq hai account ban karne ka agar koi bhi rules toray jaye. Decision final hoga."
-                        )
-
+                        TermItem(number = 4, icon = Icons.Default.CheckCircle, text = "Hamara haq hai account ban karne ka agar koi bhi rules toray jaye. Decision final hoga.")
                         Spacer(Modifier.height(24.dp))
 
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFFD700).copy(alpha = 0.15f))
-                                .border(
-                                    1.dp,
-                                    Color(0xFFFFD700).copy(alpha = 0.3f),
-                                    RoundedCornerShape(12.dp)
-                                )
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFFD700).copy(alpha = 0.15f)) // 👈 GOLDEN BG
+                                .border(1.5.dp, Color(0xFFFFD700), RoundedCornerShape(12.dp)) // 👈 GOLDEN BORDER
                                 .padding(12.dp)
                         ) {
-                            Text(
-                                text = "⚠️ In sharaait ko manzoor kar ke hi app use karen.",
-                                color = Color(0xFFFFD700),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text("⚠️ In sharaait ko manzoor kar ke hi app use karen.", color = Color(0xFFFFD700), fontSize = 13.sp, fontWeight = FontWeight.Medium) // 👈 GOLDEN
                         }
                     }
                 }
@@ -173,60 +109,38 @@ fun TermsScreen(onAccept: () -> Unit) {
 
             Spacer(Modifier.height(24.dp))
 
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White.copy(alpha = 0.08f))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                    .fillMaxWidth(0.9f).clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF2B0000), RoundedCornerShape(12.dp)) // 👈 DARK RED
+                    .border(2.dp, Color(0xFFFFD700).copy(alpha = 0.5f), RoundedCornerShape(12.dp)) // 👈 GOLDEN
                     .padding(12.dp)
             ) {
                 Checkbox(
                     checked = accepted,
                     onCheckedChange = { accepted = it },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFF38ef7d),
-                        uncheckedColor = Color.White.copy(alpha = 0.5f),
+                        checkedColor = Color(0xFFD32F2F), // 👈 RED
+                        uncheckedColor = Color(0xFFFFD700).copy(alpha = 0.5f), // 👈 GOLDEN
                         checkmarkColor = Color.White
                     )
                 )
-                Text(
-                    text = "I have read and accept the Terms & Conditions",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
+                Text("I have read and accept the Terms & Conditions", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 8.dp))
             }
 
             Spacer(Modifier.height(20.dp))
 
-
+            // CONTINUE BUTTON
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .height(58.dp)
-                    .scale(buttonScale)
-                    .clip(RoundedCornerShape(18.dp))
+                    .fillMaxWidth(0.9f).height(58.dp).scale(buttonScale).clip(RoundedCornerShape(18.dp))
                     .background(
-                        brush = if (accepted)
-                            Brush.horizontalGradient(listOf(Color(0xFF38ef7d), Color(0xFF11998e)))
-                        else
-                            Brush.horizontalGradient(
-                                listOf(
-                                    Color.Gray.copy(alpha = 0.3f),
-                                    Color.Gray.copy(alpha = 0.3f)
-                                )
-                            ),
+                        brush = if (accepted) Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // 👈 RED
+                        else Brush.horizontalGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f))),
                         shape = RoundedCornerShape(18.dp)
                     )
-                    .border(
-                        2.dp,
-                        if (accepted) Color.White.copy(alpha = 0.3f) else Color.Transparent,
-                        RoundedCornerShape(18.dp)
-                    )
+                    .border(2.5.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp)) // 👈 GOLDEN BORDER
             ) {
                 Button(
                     onClick = onAccept,
@@ -235,13 +149,7 @@ fun TermsScreen(onAccept: () -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues()
                 ) {
-                    Text(
-                        "Continue",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 18.sp,
-                        letterSpacing = 1.sp,
-                        color = if (accepted) Color.White else Color.White.copy(alpha = 0.5f)
-                    )
+                    Text("Continue", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, letterSpacing = 1.sp, color = if (accepted) Color.White else Color.White.copy(alpha = 0.5f))
                 }
             }
 
@@ -253,39 +161,22 @@ fun TermsScreen(onAccept: () -> Unit) {
 @Composable
 fun TermItem(number: Int, icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.Top) {
-
+        // Number Circle
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFFFD700), CircleShape),
+                .size(32.dp).clip(CircleShape)
+                .background(Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))), CircleShape), // 👈 GOLDEN
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                number.toString(),
-                color = Color(0xFF1A252F),
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 16.sp
-            )
+            Text(number.toString(), color = Color(0xFF1A0000), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp) // 👈 DARK RED TEXT
         }
 
         Spacer(Modifier.width(12.dp))
 
-
         Column(modifier = Modifier.weight(1f)) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = Color(0xFFFFD700),
-                modifier = Modifier.size(18.dp)
-            )
+            Icon(icon, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp)) // 👈 GOLDEN
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = text,
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 14.sp,
-                lineHeight = 22.sp
-            )
+            Text(text = text, color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, lineHeight = 22.sp)
         }
     }
 }

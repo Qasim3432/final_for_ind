@@ -2,6 +2,7 @@ package com.example.final_for_ind.screens.login_frame
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -58,19 +59,19 @@ import kotlinx.coroutines.delay
 fun LoginVari(
     phoneNumber: String,
     onVerify: (otp: String) -> Unit,
-    onResend: () -> Unit = {} // 👈 Naya: Resend ka callback
+    onResend: () -> Unit = {}
 ) {
     var otpValues by remember { mutableStateOf(List(6) { "" }) }
     val focusRequesters = remember { List(6) { FocusRequester() } }
-    var timer by remember { mutableStateOf(60) } // 👈 Timer state
+    var timer by remember { mutableStateOf(60) }
 
+    // 👇 BLACK RED GRADIENT
     val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     val isOtpComplete = otpValues.all { it.isNotEmpty() }
 
-    // 👇 Ye block add karo: Timer countdown
     LaunchedEffect(Unit) {
         focusRequesters[0].requestFocus()
         while (timer > 0) {
@@ -80,48 +81,46 @@ fun LoginVari(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient),
+        modifier = Modifier.fillMaxSize().background(gradient),
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .shadow(24.dp, RoundedCornerShape(28.dp)),
+            modifier = Modifier.fillMaxWidth(0.88f).shadow(24.dp, RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN BORDER
         ) {
             Box(
                 modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(28.dp))
+                    .background(brush = Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A))), shape = RoundedCornerShape(28.dp))
                     .padding(32.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
+                    // 👇 SHIELD ICON - GOLDEN GLOW
                     Box(
                         modifier = Modifier
                             .size(80.dp)
                             .clip(RoundedCornerShape(20.dp))
-                            .background(Brush.radialGradient(listOf(Color(0xFFFFD700).copy(alpha = 0.3f), Color.Transparent))),
+                            .background(Brush.radialGradient(listOf(Color(0xFFFFD700).copy(alpha = 0.4f), Color.Transparent)))
+                            .border(2.5.dp, Color(0xFFFFD700), RoundedCornerShape(20.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.Shield, null, tint = Color(0xFFFFD700), modifier = Modifier.size(44.dp))
                     }
 
                     Spacer(Modifier.height(24.dp))
-                    Text("Enter OTP", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Enter OTP", color = Color(0xFFFFD700), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold) // 👈 GOLDEN
                     Spacer(Modifier.height(8.dp))
-                    Text("Code sent to", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                    Text("Code sent to", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
                     Text(phoneNumber, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
                     Spacer(Modifier.height(40.dp))
 
-                    // OTP 6 Boxes - same as yours
+                    // OTP 6 Boxes
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         otpValues.forEachIndexed { index, value ->
                             val isActive = value.isNotEmpty()
-                            val scale by animateFloatAsState(targetValue = if (isActive) 1.05f else 1f, animationSpec = tween(150), label = "otp_scale")
+                            val scale by animateFloatAsState(targetValue = if (isActive) 1.05f else 1f, animationSpec = tween(150))
 
                             BasicTextField(
                                 value = value,
@@ -131,16 +130,10 @@ fun LoginVari(
                                         if (newValue.isNotEmpty() && index < 5) {
                                             focusRequesters[index + 1].requestFocus()
                                         }
-                                        if (newValue.isEmpty() && index > 0) {
-                                            // auto backspace
-                                        }
                                     }
                                 },
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .scale(scale)
-                                    .focusRequester(focusRequesters[index])
+                                    .weight(1f).aspectRatio(1f).scale(scale).focusRequester(focusRequesters[index])
                                     .onKeyEvent { keyEvent ->
                                         if (keyEvent.key == Key.Backspace && value.isEmpty() && index > 0) {
                                             focusRequesters[index - 1].requestFocus()
@@ -148,14 +141,18 @@ fun LoginVari(
                                             true
                                         } else false
                                     }
-                                    .border(width = if (isActive) 2.5.dp else 1.5.dp, color = if (isActive) Color(0xFFFFD700) else Color.White.copy(alpha = 0.2f), shape = RoundedCornerShape(16.dp))
-                                    .background(Color.White.copy(alpha = if (isActive) 0.15f else 0.08f), RoundedCornerShape(16.dp)),
+                                    .border(
+                                        width = if (isActive) 2.5.dp else 2.dp,
+                                        color = if (isActive) Color(0xFFFFD700) else Color(0xFFFFD700).copy(alpha = 0.5f), // 👈 GOLDEN
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .background(Color(0xFF2B0000).copy(alpha = if (isActive) 0.8f else 0.6f), RoundedCornerShape(16.dp)), // 👈 DARK RED
                                 textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
                                 decorationBox = { innerTextField ->
                                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                        if (value.isEmpty()) Text("-", color = Color.White.copy(alpha = 0.3f), fontSize = 32.sp, fontWeight = FontWeight.Light)
+                                        if (value.isEmpty()) Text("-", color = Color(0xFFFFD700).copy(alpha = 0.4f), fontSize = 32.sp, fontWeight = FontWeight.Light)
                                         innerTextField()
                                     }
                                 }
@@ -165,7 +162,7 @@ fun LoginVari(
 
                     Spacer(Modifier.height(24.dp))
 
-                    // 👇 Timer / Resend logic update
+                    // Timer / Resend
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                         if (timer > 0) {
                             Text(
@@ -176,10 +173,10 @@ fun LoginVari(
                         } else {
                             Text("Didn't get code? ", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
                             TextButton(onClick = {
-                                timer = 60 // reset timer
-                                onResend() // Firebase ko dobara call
+                                timer = 60
+                                onResend()
                             }) {
-                                Text("Resend OTP", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Resend OTP", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 13.sp) // 👈 GOLDEN
                             }
                         }
                     }
@@ -194,14 +191,25 @@ fun LoginVari(
 
 @Composable
 fun PremiumVerifyButton(text: String, enabled: Boolean, onClick: () -> Unit) {
-    val scale by animateFloatAsState(targetValue = if (enabled) 1f else 0.98f, animationSpec = tween(200), label = "verify_scale")
+    val scale by animateFloatAsState(targetValue = if (enabled) 1f else 0.98f, animationSpec = tween(200))
     Box(
-        modifier = Modifier.fillMaxWidth().height(58.dp).scale(scale).clip(RoundedCornerShape(18.dp))
-            .background(brush = if (enabled) Brush.horizontalGradient(listOf(Color(0xFF38ef7d), Color(0xFF11998e))) else Brush.horizontalGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f))), shape = RoundedCornerShape(18.dp))
-            .border(2.dp, if (enabled) Color.White.copy(alpha = 0.3f) else Color.Transparent, RoundedCornerShape(18.dp)),
+        modifier = Modifier
+            .fillMaxWidth().height(58.dp).scale(scale).clip(RoundedCornerShape(18.dp))
+            .background(
+                brush = if (enabled) Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // 👈 RED
+                else Brush.horizontalGradient(listOf(Color.Gray.copy(alpha = 0.3f), Color.Gray.copy(alpha = 0.3f))),
+                shape = RoundedCornerShape(18.dp)
+            )
+            .border(2.5.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp)), // 👈 GOLDEN BORDER
         contentAlignment = Alignment.Center
     ) {
-        Button(onClick = onClick, enabled = enabled, colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues()) {
+        Button(
+            onClick = onClick,
+            enabled = enabled,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues()
+        ) {
             Text(text, color = if (enabled) Color.White else Color.White.copy(alpha = 0.5f), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, letterSpacing = 1.sp)
         }
     }

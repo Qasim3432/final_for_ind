@@ -2,6 +2,7 @@ package com.example.final_for_ind.screens.start
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -23,8 +24,9 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(onTimeout: () -> Unit) {
+    // 👇 BLACK RED GRADIENT
     val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     // Main animations
@@ -57,7 +59,6 @@ fun SplashScreen(onTimeout: () -> Unit) {
     )
 
     LaunchedEffect(Unit) {
-
         launch {
             alpha.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
             scale.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
@@ -70,77 +71,61 @@ fun SplashScreen(onTimeout: () -> Unit) {
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient),
+        modifier = Modifier.fillMaxSize().background(gradient),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Logo with glow effect
+            // Logo with GOLDEN glow effect
             Box(
                 modifier = Modifier.size(140.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Glow background
+                // Glow background - GOLDEN
                 Box(
                     modifier = Modifier
-                        .size(140.dp)
-                        .scale(1.3f)
-                        .alpha(glowAlpha.value * 0.4f)
-                        .blur(30.dp)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(Color(0xFFFFD700), Color.Transparent)
-                            ),
-                            CircleShape
-                        )
+                        .size(140.dp).scale(1.3f).alpha(glowAlpha.value * 0.5f).blur(30.dp)
+                        .background(Brush.radialGradient(colors = listOf(Color(0xFFFFD700), Color.Transparent)), CircleShape)
+                        .border(3.dp, Color(0xFFFFD700).copy(alpha = 0.3f), CircleShape) // 👈 GOLDEN RING
                 )
 
                 // Emoji Logo
                 Text(
                     text = "🎮",
                     fontSize = 80.sp,
-                    modifier = Modifier
-                        .alpha(alpha.value)
-                        .scale(scale.value)
+                    modifier = Modifier.alpha(alpha.value).scale(scale.value)
                 )
             }
 
             Spacer(Modifier.height(32.dp))
 
-            // App Name with gradient
+            // App Name with GOLDEN glow
             Box {
-
+                // Glow text
                 Text(
                     text = "Game Hub",
-                    color = Color(0xFFFFD700).copy(alpha = 0.5f),
+                    color = Color(0xFFFFD700).copy(alpha = 0.5f), // 👈 GOLDEN
                     fontSize = 40.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 2.sp,
-                    modifier = Modifier
-                        .blur(8.dp)
-                        .alpha(glowAlpha.value * 0.6f)
+                    modifier = Modifier.blur(8.dp).alpha(glowAlpha.value * 0.6f)
                 )
 
-
+                // Main text
                 Text(
                     text = "Game Hub",
-                    color = Color.White,
+                    color = Color(0xFFFFD700), // 👈 GOLDEN
                     fontSize = 40.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 2.sp,
-                    modifier = Modifier
-                        .alpha(alpha.value)
-                        .scale(scale.value)
+                    modifier = Modifier.alpha(alpha.value).scale(scale.value)
                 )
             }
 
             Spacer(Modifier.height(8.dp))
 
-
             Text(
                 text = "Play • Compete • Win",
-                color = Color.White.copy(alpha = 0.6f),
+                color = Color.White.copy(alpha = 0.7f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 3.sp,
@@ -150,10 +135,8 @@ fun SplashScreen(onTimeout: () -> Unit) {
 
             Spacer(Modifier.height(56.dp))
 
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            // Loading Dots - GOLDEN
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 LoadingDot(scale = dot1.value)
                 LoadingDot(scale = dot2.value)
                 LoadingDot(scale = dot3.value)
@@ -166,14 +149,12 @@ fun SplashScreen(onTimeout: () -> Unit) {
 fun LoadingDot(scale: Float) {
     Box(
         Modifier
-            .size(10.dp)
-            .scale(scale)
+            .size(10.dp).scale(scale)
             .background(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFFFD700), Color(0xFFFFB700))
-                ),
+                brush = Brush.radialGradient(colors = listOf(Color(0xFFFFD700), Color(0xFFFFA500))), // 👈 GOLDEN
                 shape = CircleShape
             )
+            .border(1.5.dp, Color(0xFFFFD700), CircleShape) // 👈 GOLDEN BORDER
     )
 }
 

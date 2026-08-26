@@ -22,12 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,18 +56,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JoinReferralScreen(
+fun JoinReferralPopup(
+    show: Boolean,
     bonusCoins: Int = 50,
     onReferralApplied: (code: String) -> Unit = {},
     onSkip: () -> Unit = {},
-    onBack: () -> Unit = {}
+    onDismiss: () -> Unit = {}
 ) {
-    val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
-    )
+    if (!show) return
 
     var codeValues by remember { mutableStateOf(List(6) { "" }) }
     val focusRequesters = remember { List(6) { FocusRequester() } }
@@ -74,260 +76,268 @@ fun JoinReferralScreen(
     val code = codeValues.joinToString("")
     val isComplete = code.length == 6
 
-    LaunchedEffect(Unit) {
-        focusRequesters[0].requestFocus()
+    LaunchedEffect(show) {
+        if (show) focusRequesters[0].requestFocus()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(gradient)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
     ) {
-        Column(
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF1A0000) // 👈 BLACK RED
+            ),
+            border = androidx.compose.foundation.BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
         ) {
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Box(
+            Box {
+                // Close button
+                IconButton(
+                    onClick = onDismiss,
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                        .clickable { onBack() },
-                    contentAlignment = Alignment.Center
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White.copy(alpha = 0.7f))
                 }
-            }
 
-            Spacer(modifier = Modifier.height(48.dp))
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
 
-            Box(
-                modifier = Modifier.size(100.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFFFFD700).copy(alpha = 0.4f),
-                                    Color.Transparent
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Gift Icon
+                    Box(
+                        modifier = Modifier.size(80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            Color(0xFFFFD700).copy(alpha = 0.4f),
+                                            Color.Transparent
+                                        )
+                                    ),
+                                    CircleShape
                                 )
-                            ),
-                            CircleShape
                         )
-                )
-                Icon(
-                    imageVector = Icons.Default.CardGiftcard,
-                    contentDescription = null,
-                    tint = Color(0xFFFFD700),
-                    modifier = Modifier.size(60.dp)
-                )
-            }
+                        Icon(
+                            imageVector = Icons.Default.CardGiftcard,
+                            contentDescription = null,
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "Welcome! 🎉",
-                color = Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Enter referral code & get $bonusCoins bonus coins", // 👈 English
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 15.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(50.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                codeValues.forEachIndexed { index, value ->
-                    val isActive = value.isNotEmpty()
-                    val scale by animateFloatAsState(
-                        targetValue = if (isActive) 1.05f else 1f,
-                        animationSpec = tween(150),
-                        label = "scale"
+                    Text(
+                        text = "Welcome! 🎉",
+                        color = Color(0xFFFFD700), // GOLDEN
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.5.sp
                     )
 
-                    BasicTextField(
-                        value = value,
-                        onValueChange = { newValue ->
-                            if (newValue.length <= 1 && newValue.all { it.isLetterOrDigit() }) {
-                                codeValues = codeValues.toMutableList().also {
-                                    it[index] = newValue.uppercase()
-                                }
-                                error = false
-                                if (newValue.isNotEmpty() && index < 5) {
-                                    focusRequesters[index + 1].requestFocus()
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .scale(scale)
-                            .focusRequester(focusRequesters[index])
-                            .onKeyEvent { keyEvent ->
-                                if (keyEvent.key == Key.Backspace && value.isEmpty() && index > 0) {
-                                    focusRequesters[index - 1].requestFocus()
-                                    codeValues = codeValues.toMutableList().also {
-                                        it[index - 1] = ""
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Enter referral code & get $bonusCoins bonus coins",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // 6 Boxes
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        codeValues.forEachIndexed { index, value ->
+                            val isActive = value.isNotEmpty()
+                            val scale by animateFloatAsState(
+                                targetValue = if (isActive) 1.05f else 1f,
+                                animationSpec = tween(150),
+                                label = "scale"
+                            )
+
+                            BasicTextField(
+                                value = value,
+                                onValueChange = { newValue ->
+                                    if (newValue.length <= 1 && newValue.all { it.isLetterOrDigit() }) {
+                                        codeValues = codeValues.toMutableList().also {
+                                            it[index] = newValue.uppercase()
+                                        }
+                                        error = false
+                                        if (newValue.isNotEmpty() && index < 5) {
+                                            focusRequesters[index + 1].requestFocus()
+                                        }
                                     }
-                                    true
-                                } else false
-                            }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f)
+                                    .scale(scale)
+                                    .focusRequester(focusRequesters[index])
+                                    .onKeyEvent { keyEvent ->
+                                        if (keyEvent.key == Key.Backspace && value.isEmpty() && index > 0) {
+                                            focusRequesters[index - 1].requestFocus()
+                                            codeValues = codeValues.toMutableList().also {
+                                                it[index - 1] = ""
+                                            }
+                                            true
+                                        } else false
+                                    }
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        Color.White.copy(alpha = if (isActive) 0.15f else 0.08f),
+                                        RoundedCornerShape(14.dp)
+                                    )
+                                    .border(
+                                        width = if (error) 2.5.dp else if (isActive) 2.5.dp else 1.5.dp,
+                                        color = if (error) Color.Red else if (isActive) Color(0xFFFFD700) else Color.White.copy(
+                                            alpha = 0.2f
+                                        ),
+                                        shape = RoundedCornerShape(14.dp)
+                                    ),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = Color.White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    textAlign = TextAlign.Center
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Text,
+                                    capitalization = KeyboardCapitalization.Characters
+                                ),
+                                singleLine = true,
+                                decorationBox = { innerTextField ->
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        if (value.isEmpty()) {
+                                            Text(
+                                                "-",
+                                                color = Color.White.copy(alpha = 0.3f),
+                                                fontSize = 28.sp,
+                                                fontWeight = FontWeight.Light
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    if (error) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "⚠️ Code must be 6 characters",
+                            color = Color.Red,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    // Apply Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(
-                                Color.White.copy(alpha = if (isActive) 0.15f else 0.08f),
-                                RoundedCornerShape(16.dp)
+                                brush = if (isComplete)
+                                    Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // RED
+                                else
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color.Gray.copy(alpha = 0.3f),
+                                            Color.Gray.copy(alpha = 0.3f)
+                                        )
+                                    ),
+                                shape = RoundedCornerShape(16.dp)
                             )
                             .border(
-                                width = if (error) 2.5.dp else if (isActive) 2.5.dp else 1.5.dp,
-                                color = if (error) Color.Red else if (isActive) Color(0xFFFFD700) else Color.White.copy(
-                                    alpha = 0.2f
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ),
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            color = Color.White,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Center
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Text,
-                            capitalization = KeyboardCapitalization.Characters
-                        ),
-                        singleLine = true,
-                        decorationBox = { innerTextField ->
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                if (value.isEmpty()) {
-                                    Text(
-                                        "-",
-                                        color = Color.White.copy(alpha = 0.3f),
-                                        fontSize = 32.sp,
-                                        fontWeight = FontWeight.Light
-                                    )
+                                2.dp,
+                                if (isComplete) Color(0xFFFFD700) else Color.Transparent,
+                                RoundedCornerShape(16.dp)
+                            )
+                    ) {
+                        Button(
+                            onClick = {
+                                if (isComplete) {
+                                    onReferralApplied(code)
+                                } else {
+                                    error = true
                                 }
-                                innerTextField()
-                            }
+                            },
+                            enabled = isComplete,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues()
+                        ) {
+                            Text(
+                                text = "Apply Code",
+                                color = Color.White,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 1.sp
+                            )
                         }
-                    )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    TextButton(onClick = onSkip) {
+                        Text(
+                            text = "Skip it, I'll do it later",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = "⚡ Note: Code can only be used once",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
-            }
-
-            if (error) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "⚠️ Code must be 6 characters", // 👈 English
-                    color = Color.Red,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(36.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(
-                        brush = if (isComplete)
-                            Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFB700)))
-                        else
-                            Brush.horizontalGradient(
-                                listOf(
-                                    Color.Gray.copy(alpha = 0.3f),
-                                    Color.Gray.copy(alpha = 0.3f)
-                                )
-                            ),
-                        shape = RoundedCornerShape(18.dp)
-                    )
-                    .border(
-                        2.dp,
-                        if (isComplete) Color.White.copy(alpha = 0.3f) else Color.Transparent,
-                        RoundedCornerShape(18.dp)
-                    )
-            ) {
-                Button(
-                    onClick = {
-                        if (isComplete) {
-                            onReferralApplied(code)
-                        } else {
-                            error = true
-                        }
-                    },
-                    enabled = isComplete,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues()
-                ) {
-                    Text(
-                        text = "Apply Code",
-                        color = if (isComplete) Color(0xFF1A252F) else Color.White.copy(alpha = 0.5f),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            TextButton(onClick = onSkip) {
-                Text(
-                    text = "Skip it, I'll do it later",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White.copy(alpha = 0.08f))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "⚡ Note: Code can only be used once", // 👈 English
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
 }
 
-@Preview(showBackground = true, device = "id:pixel_6")
+@Preview(showBackground = true)
 @Composable
-fun JoinReferralScreenPreview() {
-    JoinReferralScreen()
+fun JoinReferralPopupPreview() {
+    JoinReferralPopup(show = true)
 }

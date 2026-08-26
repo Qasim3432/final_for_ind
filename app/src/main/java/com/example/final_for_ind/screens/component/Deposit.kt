@@ -15,8 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,8 +47,9 @@ fun DepositScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    // 👇 BLACK RED GRADIENT
     val bgGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364))
+        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
 
     val quickAmounts = listOf(100, 500, 1000, 5000)
@@ -73,134 +72,91 @@ fun DepositScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("Deposit Coins", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text("Deposit Coins", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFFFFD700)) // 👈 GOLDEN
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color(0xFFFFD700)) // 👈 GOLDEN
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         containerColor = Color.Transparent
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-             .fillMaxSize()
-             .background(bgGradient)
-             .padding(paddingValues)
-             .padding(horizontal = 20.dp)
-             .verticalScroll(scrollState)
+            modifier = Modifier.fillMaxSize().background(bgGradient).padding(paddingValues).padding(horizontal = 20.dp).verticalScroll(scrollState)
         ) {
             Spacer(Modifier.height(24.dp))
 
-
+            // BALANCE CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
-                border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.3f))
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
-                Row(
-                    modifier = Modifier
-                     .fillMaxWidth()
-                     .padding(24.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier.background(brush = Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A))), shape = RoundedCornerShape(24.dp)).padding(24.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Wallet,
-                        null,
-                        tint = Color(0xFFFFD700),
-                        modifier = Modifier.size(30.dp)
-                    )
-                    Spacer(Modifier.width(14.dp))
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "Current Balance",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 13.sp,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "$currentBalance",
-                            color = Color.White,
-                            fontSize = 30.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text("Coins", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Wallet, null, tint = Color(0xFFFFD700), modifier = Modifier.size(30.dp)) // 👈 GOLDEN
+                        Spacer(Modifier.width(14.dp))
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Current Balance", color = Color(0xFFFFD700), fontSize = 13.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold) // 👈 GOLDEN
+                            Spacer(Modifier.height(4.dp))
+                            Text("$currentBalance", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("Coins", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(32.dp))
 
-            Text(
-                "Enter Amount",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text("Enter Amount", color = Color(0xFFFFD700), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) // 👈 GOLDEN
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = amount,
-                onValueChange = { newValue ->
-                    amount = newValue.filter { it.isDigit() }.take(6)
-                },
+                onValueChange = { newValue -> amount = newValue.filter { it.isDigit() }.take(6) },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        "0",
-                        color = Color.White.copy(alpha = 0.4f),
-                        fontSize = 28.sp
-                    )
-                },
+                placeholder = { Text("0", color = Color.White.copy(alpha = 0.4f), fontSize = 28.sp) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFFFFD700),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedBorderColor = Color(0xFFFFD700), // 👈 GOLDEN
+                    unfocusedBorderColor = Color(0xFFFFD700).copy(alpha = 0.3f),
                     cursorColor = Color(0xFFFFD700)
                 ),
                 shape = RoundedCornerShape(16.dp),
-                textStyle = LocalTextStyle.current.copy(
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                textStyle = LocalTextStyle.current.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold)
             )
 
             Spacer(Modifier.height(20.dp))
 
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            // QUICK AMOUNTS
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 quickAmounts.forEach { quickAmount ->
                     FilterChip(
                         selected = amount == quickAmount.toString(),
                         onClick = { amount = quickAmount.toString() },
                         label = {
-                            Text(
-                                "$quickAmount",
-                                fontWeight = if (amount == quickAmount.toString()) FontWeight.Bold else FontWeight.Medium
-                            )
+                            Text("$quickAmount", fontWeight = if (amount == quickAmount.toString()) FontWeight.Bold else FontWeight.Medium)
                         },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFFFFD700),
-                            selectedLabelColor = Color.Black,
-                            containerColor = Color.White.copy(alpha = 0.1f),
+                            selectedContainerColor = Color(0xFFFFD700), // 👈 GOLDEN
+                            selectedLabelColor = Color(0xFF1A0000), // 👈 DARK RED
+                            containerColor = Color(0xFF2B0000), // 👈 DARK RED
                             labelColor = Color.White
                         ),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                        border = BorderStroke(2.dp, Color(0xFFFFD700)), // 👈 GOLDEN
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     )
@@ -209,65 +165,36 @@ fun DepositScreen(
 
             Spacer(Modifier.height(36.dp))
 
-            Text(
-                "Select Payment Method",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text("Select Payment Method", color = Color(0xFFFFD700), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) // 👈 GOLDEN
             Spacer(Modifier.height(14.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 paymentMethods.forEach { method ->
                     val isSelected = selectedMethod?.name == method.name
                     val bgColor by animateColorAsState(
-                        if (isSelected) Color(0xFFFFD700).copy(alpha = 0.15f) else Color.White.copy(
-                            alpha = 0.05f
-                        ),
+                        if (isSelected) Color(0xFFFFD700).copy(alpha = 0.15f) else Color(0xFF2B0000).copy(alpha = 0.6f), // 👈 GOLDEN/RED
                         label = "bg"
                     )
-                    val borderWidth by animateDpAsState(
-                        if (isSelected) 2.dp else 1.dp,
-                        label = "border"
-                    )
+                    val borderWidth by animateDpAsState(if (isSelected) 2.5.dp else 2.dp, label = "border")
 
                     Card(
-                        modifier = Modifier
-                         .fillMaxWidth()
-                         .clickable { selectedMethod = method },
+                        modifier = Modifier.fillMaxWidth().clickable { selectedMethod = method },
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = bgColor),
-                        border = BorderStroke(
-                            borderWidth,
-                            if (isSelected) Color(0xFFFFD700) else Color.White.copy(alpha = 0.1f)
-                        )
+                        border = BorderStroke(borderWidth, if (isSelected) Color(0xFFFFD700) else Color(0xFFFFD700).copy(alpha = 0.4f)) // 👈 GOLDEN
                     ) {
-                        Row(
-                            modifier = Modifier
-                             .fillMaxWidth()
-                             .padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(method.icon, fontSize = 30.sp)
                             Spacer(Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    method.name,
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                                Text(
-                                    method.country,
-                                    color = Color.White.copy(alpha = 0.5f),
-                                    fontSize = 12.sp
-                                )
+                                Text(method.name, color = Color.White, fontSize = 16.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                                Text(method.country, color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
                             }
                             RadioButton(
                                 selected = isSelected,
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
-                                    selectedColor = Color(0xFFFFD700),
+                                    selectedColor = Color(0xFFFFD700), // 👈 GOLDEN
                                     unselectedColor = Color.White.copy(alpha = 0.3f)
                                 )
                             )
@@ -278,23 +205,13 @@ fun DepositScreen(
 
             Spacer(Modifier.height(36.dp))
 
-
+            // DEPOSIT BUTTON
             Button(
                 onClick = {
                     val depositAmount = amount.toIntOrNull()
                     when {
-                        selectedMethod == null -> Toast.makeText(
-                            context,
-                            "Select payment method",
-                            Toast.LENGTH_SHORT
-                        ).show()
-
-                        depositAmount == null || depositAmount <= 0 -> Toast.makeText(
-                            context,
-                            "Enter valid amount",
-                            Toast.LENGTH_SHORT
-                        ).show()
-
+                        selectedMethod == null -> Toast.makeText(context, "Select payment method", Toast.LENGTH_SHORT).show()
+                        depositAmount == null || depositAmount <= 0 -> Toast.makeText(context, "Enter valid amount", Toast.LENGTH_SHORT).show()
                         else -> {
                             Log.d("DEPOSIT", "Deposit $depositAmount via ${selectedMethod!!.name}")
                             onDeposit(depositAmount)
@@ -302,34 +219,26 @@ fun DepositScreen(
                         }
                     }
                 },
-                modifier = Modifier
-                 .fillMaxWidth()
-                 .height(58.dp),
+                modifier = Modifier.fillMaxWidth().height(58.dp),
                 enabled = canDeposit,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues()
+                contentPadding = PaddingValues(),
+                border = BorderStroke(2.5.dp, Color(0xFFFFD700)) // 👈 GOLDEN
             ) {
                 Box(
-                    modifier = Modifier
-                     .fillMaxSize()
-                     .background(
-                      if (canDeposit)
-                       Brush.horizontalGradient(
-                        listOf(
-                         Color(0xFFFFD700),
-                         Color(0xFFFFB700)
-                        )
-                       )
-                      else
-                       Brush.horizontalGradient(listOf(Color.Gray, Color.Gray))
-                     ),
+                    modifier = Modifier.fillMaxSize().background(
+                        if (canDeposit)
+                            Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))) // 👈 RED
+                        else
+                            Brush.horizontalGradient(listOf(Color.Gray, Color.Gray))
+                    ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         "Deposit Now",
-                        color = if (canDeposit) Color.Black else Color.White.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold,
+                        color = if (canDeposit) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp,
                         letterSpacing = 0.5.sp
                     )
@@ -341,7 +250,7 @@ fun DepositScreen(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun DepositPreview() {
     DepositScreen()
