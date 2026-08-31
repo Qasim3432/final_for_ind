@@ -186,7 +186,7 @@ fun LoginScreen(
                                 "Sign Up",
                                 color = Color(0xFFFFD700),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 12.sp
                             )
                         }
                     }

@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun First_Screen(
     onPlayClick: () -> Unit,
-    onJoinCodeClick: () -> Unit, // 👈 ye ab use nahi hoga
+    onJoinCodeClick: () -> Unit, //
     showLogoutMessage: Boolean = false
 ) {
 
@@ -115,7 +115,7 @@ fun First_Screen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                            // 👇 SIRF 1 BUTTON BACH GAYA
+
                             LoginPremiumButton(
                                 text = "Play",
                                 icon = Icons.Default.PlayArrow,
