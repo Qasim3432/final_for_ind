@@ -1,440 +1,273 @@
 package com.example.final_for_ind
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.navigation.NavType
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import com.example.final_for_ind.screens.referral.CreateRoomScreen
-import com.example.final_for_ind.screens.referral.InviteScreen
+import com.example.final_for_ind.network.GameSessionManager
+import com.example.final_for_ind.network.TransactionLog
 import com.example.final_for_ind.screens.component.DashboardScreen
-import com.example.final_for_ind.screens.component.GiftSpinScreen
-import com.example.final_for_ind.screens.component.InternationalPayment
+import com.example.final_for_ind.screens.component.GiftScreen
 import com.example.final_for_ind.screens.component.WithdrawScreen
 import com.example.final_for_ind.screens.deposit.DepositScreen
-import com.example.final_for_ind.screens.dice_board.LudoGame
-import com.example.final_for_ind.screens.home_lobby.FourPlayerDialog
-import com.example.final_for_ind.screens.home_lobby.TwoPlayerDialog
 import com.example.final_for_ind.screens.home_lobby.HomeScreen
 import com.example.final_for_ind.screens.login_frame.First_Screen
-import com.example.final_for_ind.screens.login_frame.IntroSec
-import com.example.final_for_ind.screens.login_frame.LoginScreen
-import com.example.final_for_ind.screens.login_frame.LoginVari
+import com.example.final_for_ind.screens.login_frame.auth.AuthScreenRouter
 import com.example.final_for_ind.screens.profile.ProfileScreen
-import com.example.final_for_ind.screens.referral.JoinReferralPopup
-import com.example.final_for_ind.screens.start.SettingScreen
-import com.example.final_for_ind.screens.start.SplashScreen
-import com.example.final_for_ind.screens.start.TermsScreen
-import com.example.final_for_ind.ui.theme.Final_for_indTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
-    private var pendingNickname: String = ""
-    private var pendingProfileUri: Uri? = null
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val sessionManager = GameSessionManager(applicationContext)
         setContent {
-            Final_for_indTheme {
-                val navController = rememberNavController()
-                val context = LocalContext.current
-                var userCoins by remember { mutableStateOf(0) }
-                var isLoggedIn by remember { mutableStateOf(false) }
-                var showReferralPopup by remember { mutableStateOf(false) }
-                var cameFromRegister by remember { mutableStateOf(false) }
-
-                NavHost(navController = navController, startDestination = "splash") {
-
-                    composable("splash") {
-                        SplashScreen {
-                            navController.navigate("first") {
-                                popUpTo("splash") { inclusive = true }
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppNavigation(
+                        sessionManager = sessionManager,
+                        onPerformSubmit = { amount, method, senderName ->
+                            lifecycleScope.launch {
+                                val success = sessionManager.submitDepositNotification(amount, method, senderName)
+                                android.util.Log.d("APP_NAV", "Was database save successful? $success")
                             }
                         }
-                    }
+                    )
+                }
+            }
+        }
+    }
+}
 
-                    composable(
-                        "first?loggedOut={loggedOut}",
-                        arguments = listOf(navArgument("loggedOut") {
-                            type = NavType.BoolType
-                            defaultValue = false
-                        })
-                    ) { backStackEntry ->
-                        val loggedOut = backStackEntry.arguments?.getBoolean("loggedOut") ?: false
-                        First_Screen(
-                            onPlayClick = {
-                                isLoggedIn = false
-                                navController.navigate("home") {
-                                    popUpTo("first") { inclusive = true }
-                                }
-                            },
-                            onJoinCodeClick = { showReferralPopup = true },
-                            showLogoutMessage = loggedOut
-                        )
-                    }
+@Composable
+fun AppNavigation(
+    sessionManager: GameSessionManager,
+    onPerformSubmit: (Int, String, String) -> Unit
+) {
+    val navController = rememberNavController()
+    val composeScope = rememberCoroutineScope()
 
-                    composable("login") {
-                        LoginScreen(
-                            onLogin = { email, password, name ->
-                                isLoggedIn = true
-                                pendingNickname = name
-                                Log.d("LOGIN", "Email: $email, Name: $name")
-                                Toast.makeText(context, "Welcome $name", Toast.LENGTH_SHORT).show()
-                                navController.navigate("home") {
-                                    popUpTo("first") { inclusive = true }
-                                }
-                            },
-                            onSignUpClick = { navController.navigate("intro") }
-                        )
-                    }
+    // Agar pehle se login hai to seedha home, warna first screen
+    val startRoute = remember {
+        if (sessionManager.isEmailLoggedIn()) "home" else "first_screen_route"
+    }
 
-                    composable("join") {
-                        LaunchedEffect(Unit) {
-                            showReferralPopup = true
+    NavHost(
+        navController = navController,
+        startDestination = startRoute
+    ) {
+        // Route 1: Welcome / Entry Option Screen
+        composable("first_screen_route") {
+            First_Screen(
+                onPlayClick = {
+                    // Pehle auth check karo
+                    if (sessionManager.isEmailLoggedIn()) {
+                        navController.navigate("home") {
+                            popUpTo("first_screen_route") { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate("auth_flow") {
+                            popUpTo("first_screen_route") { inclusive = true }
+                        }
+                    }
+                },
+                sessionManager = sessionManager
+            )
+        }
+
+        // Route: Email Auth
+        composable("auth_flow") {
+            AuthScreenRouter(
+                sessionManager = sessionManager,
+                onAuthComplete = {
+                    navController.navigate("home") {
+                        popUpTo("auth_flow") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Route 2: Home Screen Lobby Layout
+        composable("home") {
+            HomeScreen(
+                sessionManager = sessionManager,
+                onNavigateToDeposit = {
+                    navController.navigate("wallet") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToWallet = {
+                    navController.navigate("wallet") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToGift = {
+                    navController.navigate("gift") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onProfileClick = { navController.navigate("profile") },
+                onSettingsClick = { /* settings */ }
+            )
+        }
+
+        // Route 3: Real-time Wallet Dashboard Layout
+        composable("wallet") {
+            var walletBalance by remember { mutableStateOf(0) }
+            var escrowBalance by remember { mutableStateOf(0) }
+            var userReferralCode by remember { mutableStateOf("Loading...") }
+            var transactionsList by remember { mutableStateOf<List<TransactionLog>>(emptyList()) }
+
+            LaunchedEffect(Unit) {
+                try {
+                    val token = sessionManager.getOrCreateUserToken()
+                    val balanceResult = sessionManager.fetchUserBalanceFromServer(token)
+
+                    walletBalance = balanceResult.coins
+                    escrowBalance = balanceResult.lockedCoins
+                    transactionsList = sessionManager.fetchTransactionHistory(token)
+                    userReferralCode = sessionManager.fetchUserReferralCode(token)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    userReferralCode = "ERROR"
+                }
+            }
+
+            DashboardScreen(
+                balance = walletBalance,
+                lockedCoins = escrowBalance,
+                referralCode = userReferralCode,
+                historyLogs = transactionsList,
+                selectedNavIndex = 1,
+                onNavItemClick = { index ->
+                    when(index){
+                        0 -> navController.navigate("home") {
+                            popUpTo("wallet") { inclusive = true }
+                        }
+                        2 -> navController.navigate("profile") {
+                            popUpTo("wallet") { inclusive = true }
+                        }
+                        3 -> navController.navigate("gift") {
+                            popUpTo("wallet") { inclusive = true }
+                        }
+                    }
+                },
+                onDeposit = { navController.navigate("deposit") },
+                onWithdraw = { navController.navigate("withdraw") }
+            )
+        }
+
+        // Route 4: Profile Screen
+        composable("profile") {
+            ProfileScreen(
+                selectedNavIndex = 2,
+                onNavItemClick = { index ->
+                    when(index){
+                        0 -> navController.navigate("home") {
+                            popUpTo("profile") { inclusive = true }
+                        }
+                        1 -> navController.navigate("wallet") {
+                            popUpTo("profile") { inclusive = true }
+                        }
+                        3 -> navController.navigate("gift") {
+                            popUpTo("profile") { inclusive = true }
+                        }
+                    }
+                },
+                sessionManager = sessionManager,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // Route 5: Gift Screen
+        composable("gift") {
+            GiftScreen(
+                selectedNavIndex = 3,
+                onNavItemClick = { index ->
+                    when(index){
+                        0 -> navController.navigate("home") {
+                            popUpTo("gift") { inclusive = true }
+                        }
+                        1 -> navController.navigate("wallet") {
+                            popUpTo("gift") { inclusive = true }
+                        }
+                        2 -> navController.navigate("profile") {
+                            popUpTo("gift") { inclusive = true }
+                        }
+                    }
+                },
+            )
+        }
+
+        // Route 6: Deposit Form Action Trigger Panel
+        composable("deposit") {
+            DepositScreen(
+                sessionManager = sessionManager,
+                onBack = { navController.popBackStack() },
+                onDepositSubmitted = { amount, method, senderName ->
+                    onPerformSubmit(amount, method, senderName)
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Route 7: Withdrawal Request Form Processing Panel
+        composable("withdraw") {
+            var balanceAmount by remember { mutableStateOf(0) }
+            LaunchedEffect(Unit) {
+                try {
+                    val token = sessionManager.getOrCreateUserToken()
+                    val balanceResult = sessionManager.fetchUserBalanceFromServer(token)
+                    balanceAmount = balanceResult.coins
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            WithdrawScreen(
+                currentBalance = balanceAmount,
+                onBack = { navController.popBackStack() },
+                onWithdrawSubmitted = { amount, method, title, number ->
+                    composeScope.launch {
+                        val success = sessionManager.submitWithdrawalNotification(amount, method, title, number)
+                        android.util.Log.d("APP_NAV", "Was withdrawal submit successful? $success")
+
+                        launch(kotlinx.coroutines.Dispatchers.Main) {
                             navController.popBackStack()
                         }
                     }
-
-                    composable("intro") {
-                        IntroSec(onSubmit = { name, phone, profileUri ->
-                            pendingNickname = name
-                            pendingProfileUri = profileUri
-                            cameFromRegister = true
-                            Log.d("BACKEND_TODO", "Send OTP to $phone for $name, Photo: $profileUri")
-                            navController.navigate("verify/$phone")
-                        })
-                    }
-
-                    composable(
-                        "verify/{phone}",
-                        arguments = listOf(navArgument("phone") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val phone = backStackEntry.arguments?.getString("phone") ?: ""
-                        LoginVari(
-                            phoneNumber = phone,
-                            onVerify = { navController.navigate("terms") }
-                        )
-                    }
-
-                    composable("terms") {
-                        TermsScreen(onAccept = {
-                            isLoggedIn = true
-                            Log.d("BACKEND_TODO", "Save user: $pendingNickname, Phone saved, Photo: $pendingProfileUri")
-                            showReferralPopup = true
-                            cameFromRegister = true
-                            navController.navigate("home") {
-                                popUpTo("splash") { inclusive = true }
-                            }
-                        })
-                    }
-
-                    composable("home") {
-                        var showCoinsDialog by remember { mutableStateOf(false) }
-
-                        HomeScreen(
-                            coins = userCoins,
-                            isGuest = !isLoggedIn,
-                            onProfileClick = { navController.navigate("profile") },
-                            onSettingsClick = { navController.navigate("settings") },
-                            onDepositClick = { navController.navigate("deposit") },
-                            onGameModeClick = { mode, bet ->
-                                Log.d("GAME_MODE", "Selected: $mode, Bet: $bet")
-                                if (bet > 0) {
-                                    if (userCoins >= bet) {
-                                        userCoins -= bet
-                                        navController.navigate("game/$mode/$bet") {
-                                            popUpTo("home") { inclusive = false }
-                                        }
-                                    } else {
-                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    if (mode == "2P" || mode == "4P") {
-                                        navController.navigate("setup/$mode")
-                                    } else {
-                                        navController.navigate("game/$mode/0")
-                                    }
-                                }
-                            },
-                            onNavItemClick = { route ->
-                                if (route != "home") navController.navigate(route)
-                            },
-                            onFriendsClick = { navController.navigate("create_room/Ali Khan") },
-                            onLoginClick = { navController.navigate("login") },
-                            onSignUpClick = { navController.navigate("intro") }
-                        )
-
-                        if (showCoinsDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showCoinsDialog = false },
-                                containerColor = Color(0xFF2C3E50),
-                                title = {
-                                    Text("Your Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                                },
-                                text = {
-                                    Column {
-                                        Text("Total: $userCoins 💰", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(Modifier.height(12.dp))
-                                        Text("• Won: 0 coins", color = Color(0xFF25D366))
-                                        Text("• Bonus: 0 coins", color = Color(0xFF39C12F))
-                                        Spacer(Modifier.height(8.dp))
-                                        Text("Deposit coins to play premium matches!", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
-                                    }
-                                },
-                                confirmButton = {
-                                    TextButton(onClick = { showCoinsDialog = false }) {
-                                        Text("OK", color = Color.White)
-                                    }
-                                }
-                            )
-                        }
-                    }
-
-                    composable(
-                        "create_room/{friendName}",
-                        arguments = listOf(navArgument("friendName") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val friendName = backStackEntry.arguments?.getString("friendName") ?: "Friend"
-                        CreateRoomScreen(
-                            friendName = friendName,
-                            onBack = { navController.popBackStack() },
-                            onCreateLink = {
-                                Log.d("ROOM", "Room create logic here")
-                                Toast.makeText(context, "Room Created!", Toast.LENGTH_SHORT).show()
-                            },
-                            onShareLink = {
-                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "Join karo Ludo Room! Link: yourapp://room/ABC123 🎮")
-                                }
-                                startActivity(Intent.createChooser(sendIntent, "Share Room Link"))
-                            },
-                            onCopyLink = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Room Link", "yourapp://room/ABC123")
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Link Copied!", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
-
-                    composable(
-                        "setup/{mode}",
-                        arguments = listOf(navArgument("mode") { type = NavType.StringType })
-                    ) { backStackEntry ->
-                        val mode = backStackEntry.arguments?.getString("mode") ?: "2P"
-
-                        if (mode == "2P") {
-                            TwoPlayerDialog(
-                                gameMode = "2P",
-                                walletBalance = userCoins,
-                                onDismiss = { navController.popBackStack() },
-                                onStartGame = { gameMode, bet ->
-                                    if (userCoins >= bet) {
-                                        userCoins -= bet
-                                        navController.navigate("game/$gameMode/$bet") {
-                                            popUpTo("setup/$mode") { inclusive = true }
-                                        }
-                                    } else {
-                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            )
-                        } else {
-                            FourPlayerDialog(
-                                walletBalance = userCoins,
-                                onDismiss = { navController.popBackStack() },
-                                onPlayBet = { bet ->
-                                    if (userCoins >= bet) {
-                                        userCoins -= bet
-                                        navController.navigate("game/4P/$bet") {
-                                            popUpTo("setup/$mode") { inclusive = true }
-                                        }
-                                    } else {
-                                        Toast.makeText(context, "Not enough coins!", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            )
-                        }
-                    }
-
-                    composable("wallet") {
-                        DashboardScreen(
-                            balance = userCoins,
-                            onNavItemClick = { route ->
-                                if (route != "wallet") navController.navigate(route)
-                            },
-                            onAddCoinsByUSDT = { navController.navigate("international_payment") },
-                            onDeposit = { navController.navigate("deposit") },
-                            onWithdraw = { navController.navigate("withdraw") }
-                        )
-                    }
-
-                    composable("international_payment") {
-                        InternationalPayment(
-                            onBack = { navController.popBackStack() },
-                            onProceed = { amount, method ->
-                                Log.d("USDT", "Proceed $amount USDT via $method")
-                                userCoins += amount
-                                navController.popBackStack()
-                            }
-                        )
-                    }
-
-                    composable("deposit") {
-                        DepositScreen(
-                            currentBalance = userCoins,
-                            onBack = { navController.popBackStack() },
-                            onDeposit = { amount ->
-                                Log.d("DEPOSIT", "Deposit $amount coins")
-                                userCoins += amount
-                                navController.popBackStack()
-                            }
-                        )
-                    }
-
-                    composable("withdraw") {
-                        WithdrawScreen(
-                            currentBalance = userCoins,
-                            onBack = { navController.popBackStack() },
-                            onWithdraw = { amount ->
-                                if (userCoins >= amount) {
-                                    Log.d("WITHDRAW", "Withdraw $amount coins")
-                                    userCoins -= amount
-                                    navController.popBackStack()
-                                } else {
-                                    Toast.makeText(context, "Insufficient balance", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        )
-                    }
-
-                    composable("gift") {
-                        GiftSpinScreen(
-                            currentCoins = userCoins,
-                            onBack = { navController.popBackStack() },
-                            onRewardClaimed = { coins ->
-                                userCoins += coins
-                                Log.d("GIFT", "Won $coins coins")
-                            }
-                        )
-                    }
-
-                    composable(
-                        "game/{mode}/{bet}",
-                        arguments = listOf(
-                            navArgument("mode") { type = NavType.StringType },
-                            navArgument("bet") { type = NavType.IntType }
-                        )
-                    ) { backStackEntry ->
-                        val mode = backStackEntry.arguments?.getString("mode") ?: "2P"
-                        val bet = backStackEntry.arguments?.getInt("bet") ?: 0
-                        LudoGame(mode = mode, betAmount = bet)
-                    }
-
-                    composable("settings") {
-                        SettingScreen(
-                            onBack = { navController.popBackStack() },
-                            onNavigateToProfile = { navController.navigate("profile") },
-                            onNavigateToInvite = { navController.navigate("invite") },
-                            onLogout = {
-                                isLoggedIn = false
-                                pendingNickname = ""
-                                Log.d("BACKEND_TODO", "Clear session & navigate to login")
-                                navController.navigate("first?loggedOut=true") {
-                                    popUpTo("home") { inclusive = true }
-                                }
-                            }
-                        )
-                    }
-
-                    composable("invite") {
-                        InviteScreen(
-                            userReferralCode = "AB7X9K",
-                            invitedCount = 3,
-                            targetCount = 5,
-                            onShare = { code ->
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, "Join karo Ludo App! Mera referral code: $code. 50 coins bonus mile ga 🎁")
-                                    setPackage("com.whatsapp")
-                                }
-                                try {
-                                    startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "WhatsApp install nahi hai", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
-
-                    composable("profile") {
-                        ProfileScreen(
-                            name = if(isLoggedIn) pendingNickname else "",
-                            coins = userCoins,
-                            onBack = { navController.popBackStack() },
-                            onBetHistory = { Log.d("BACKEND_TODO", "Open Bet History Screen") },
-                            onLogout = {
-                                isLoggedIn = false
-                                pendingNickname = ""
-                                Log.d("BACKEND_TODO", "Clear session & navigate to login")
-                                navController.navigate("first?loggedOut=true") {
-                                    popUpTo("home") { inclusive = true }
-                                }
-                            }
-                        )
-                    }
                 }
-
-                // 👇 POPUP - AB HOME PE HI RAHEGA
-                JoinReferralPopup(
-                    show = showReferralPopup,
-                    bonusCoins = 50,
-                    onReferralApplied = { code ->
-                        Log.d("REFERRAL", "Code entered: $code")
-                        userCoins += 50
-                        Toast.makeText(context, "Referral code: $code applied. +50 coins", Toast.LENGTH_SHORT).show()
-                        showReferralPopup = false
-                        cameFromRegister = false
-                    },
-                    onSkip = {
-                        showReferralPopup = false
-                        cameFromRegister = false
-                    },
-                    onDismiss = {
-                        showReferralPopup = false
-                        cameFromRegister = false
-                    }
-                )
-            }
+            )
         }
     }
 }

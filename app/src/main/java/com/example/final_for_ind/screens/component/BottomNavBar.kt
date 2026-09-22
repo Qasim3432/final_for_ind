@@ -6,6 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -19,23 +24,27 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.final_for_ind.R
+
+private data class NavItem(
+    val title: String,
+    val icon: ImageVector,
+    val index: Int
+)
 
 @Composable
 fun BottomNavBar(
-    currentRoute: String,
-    onNavigate: (String) -> Unit
+    selectedIndex: Int = 0,
+    onItemClick: (Int) -> Unit = {}
 ) {
     val navItems = listOf(
-        NavItem("Deposit", R.drawable.deposit, "deposit"),
-        NavItem("Wallet", R.drawable.wallet, "wallet"),
-        NavItem("Home", R.drawable.regular_outline_home, "home"),
-        NavItem("Gift", R.drawable.gift, "gift"),
-        NavItem("Profile", R.drawable.outline_account_circle_24, "profile"),
+        NavItem("Home", Icons.Default.Home, 0),
+        NavItem("Wallet", Icons.Default.Wallet, 1),
+        NavItem("Gift", Icons.Default.CardGiftcard, 3),
+        NavItem("Profile", Icons.Default.Person, 2),
     )
 
     NavigationBar(
@@ -59,23 +68,20 @@ fun BottomNavBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 navItems.forEach { item ->
-                    val isSelected = currentRoute == item.route
+                    val isSelected = selectedIndex == item.index
 
                     val iconColor by animateColorAsState(
                         targetValue = if (isSelected) Color(0xFFFFD700) else Color.White.copy(alpha = 0.5f),
                         label = "iconColor"
                     )
-
                     val textColor by animateColorAsState(
                         targetValue = if (isSelected) Color(0xFFFFD700) else Color.White.copy(alpha = 0.5f),
                         label = "textColor"
                     )
-
                     val scale by animateFloatAsState(
                         targetValue = if (isSelected) 1.15f else 1f,
                         label = "scale"
                     )
-
 
                     NavigationBarItem(
                         icon = {
@@ -93,16 +99,13 @@ fun BottomNavBar(
                                                 radius = 80f
                                             )
                                         else Brush.verticalGradient(
-                                            listOf(
-                                                Color.Transparent,
-                                                Color.Transparent
-                                            )
+                                            listOf(Color.Transparent, Color.Transparent)
                                         )
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painter = painterResource(id = item.icon),
+                                    imageVector = item.icon,
                                     contentDescription = item.title,
                                     modifier = Modifier
                                         .size(24.dp)
@@ -121,7 +124,7 @@ fun BottomNavBar(
                             )
                         },
                         selected = isSelected,
-                        onClick = { onNavigate(item.route) },
+                        onClick = { onItemClick(item.index) },
                         alwaysShowLabel = true,
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Color.Transparent,
@@ -136,9 +139,3 @@ fun BottomNavBar(
         }
     }
 }
-
-data class NavItem(
-    val title: String,
-    val icon: Int,
-    val route: String
-)
