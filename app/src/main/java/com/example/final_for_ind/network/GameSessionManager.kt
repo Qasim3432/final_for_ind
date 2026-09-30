@@ -3,90 +3,171 @@ package com.example.final_for_ind.network
 import android.content.Context
 import android.os.Build
 import android.util.Log
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.FormBody
+
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+
 import org.json.JSONObject
+
 import java.util.UUID
 
-// Representation for localized transaction ledger history records
+
 data class TransactionLog(
-    val type: String,       // "DEPOSIT" or "WITHDRAWAL"
+    val type: String,
     val amount: Int,
-    val status: String,     // "PENDING", "APPROVED", "REJECTED"
-    val dateString: String  // Date format from your Django server
+    val status: String,
+    val dateString: String
 )
 
-// 🟢 NEW: Data class to parse complete atomic balance responses
+
 data class ServerBalanceResult(
     val coins: Int,
     val lockedCoins: Int
 )
 
-// 🟢 NEW: Gift config model
+
 data class GiftConfig(
     val enabled: Boolean,
     val paidCost: Int
 )
 
-class GameSessionManager(private val context: Context) {
+
+class GameSessionManager(
+    private val context: Context
+) {
 
     private val sharedPreferences =
-        context.getSharedPreferences("ludo_session_prefs", Context.MODE_PRIVATE)
-    private val client = OkHttpClient()
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-    private val baseUrl = "http://192.168.18.48:8090/" // Replace with your host machine IP
+        context.getSharedPreferences(
+            "ludo_session_prefs",
+            Context.MODE_PRIVATE
+        )
+
+    private val client =
+        OkHttpClient()
+
+    private val jsonMediaType =
+        "application/json; charset=utf-8"
+            .toMediaType()
+
+    private val baseUrl =
+        "http://192.168.18.48:8090/"
+
+
+    // =========================================================
+    // DEVICE TOKEN
+    // =========================================================
 
     fun getOrCreateUserToken(): String {
-        val existingToken = sharedPreferences.getString("user_device_token", null)
-        if (existingToken != null) return existingToken
 
-        val modelName = Build.MODEL.replace("\\s+".toRegex(), "_")
-        val shortId = UUID.randomUUID().toString().substring(0, 5)
-        val generatedToken = "${modelName}_$shortId"
+        val existingToken =
+            sharedPreferences.getString(
+                "user_device_token",
+                null
+            )
 
-        sharedPreferences.edit().putString("user_device_token", generatedToken).apply()
+        if (existingToken != null) {
+
+            return existingToken
+        }
+
+        val modelName =
+            Build.MODEL.replace(
+                "\\s+".toRegex(),
+                "_"
+            )
+
+        val shortId =
+            UUID.randomUUID()
+                .toString()
+                .substring(0, 5)
+
+        val generatedToken =
+            "${modelName}_$shortId"
+
+        sharedPreferences.edit()
+            .putString(
+                "user_device_token",
+                generatedToken
+            )
+            .apply()
+
         return generatedToken
     }
 
-    // --------------------------------------------------
-    // EMAIL AUTH - Token mixture IP + device + email
-    // --------------------------------------------------
 
-    fun saveEmailAuthToken(token: String) {
-        sharedPreferences.edit().putString("email_auth_token", token).apply()
+    // =========================================================
+    // EMAIL AUTH TOKEN
+    // =========================================================
+
+    fun saveEmailAuthToken(
+        token: String
+    ) {
+
+        sharedPreferences.edit()
+            .putString(
+                "email_auth_token",
+                token
+            )
+            .apply()
     }
 
     fun getEmailAuthToken(): String? {
-        return sharedPreferences.getString("email_auth_token", null)
+
+        return sharedPreferences.getString(
+            "email_auth_token",
+            null
+        )
     }
 
     fun getSavedUsername(): String {
-        return sharedPreferences.getString("email_user_name", "Guest") ?: "Guest"
+
+        return sharedPreferences.getString(
+            "email_user_name",
+            "Guest"
+        ) ?: "Guest"
     }
 
     fun getSavedUserId(): Int {
-        return sharedPreferences.getInt("email_user_id", 0)
+
+        return sharedPreferences.getInt(
+            "email_user_id",
+            0
+        )
     }
 
-    fun saveEmailUser(email: String, username: String) {
+    fun saveEmailUser(
+        email: String,
+        username: String
+    ) {
+
         sharedPreferences.edit()
-            .putString("email_user_email", email)
-            .putString("email_user_name", username)
+            .putString(
+                "email_user_email",
+                email
+            )
+            .putString(
+                "email_user_name",
+                username
+            )
             .apply()
     }
 
     fun isEmailLoggedIn(): Boolean {
-        val token = getEmailAuthToken()
+
+        val token =
+            getEmailAuthToken()
+
         return !token.isNullOrBlank()
     }
 
     fun clearEmailAuth() {
+
         sharedPreferences.edit()
             .remove("email_auth_token")
             .remove("email_user_email")
@@ -94,81 +175,240 @@ class GameSessionManager(private val context: Context) {
             .apply()
     }
 
-    suspend fun verifyEmailWithBackend(
-        email: String,
-        username: String
+
+    // =========================================================
+    // SEND OTP
+    // =========================================================
+
+    suspend fun sendOtpEmail(
+        email: String
     ): Boolean = withContext(Dispatchers.IO) {
 
-        val deviceId = getOrCreateUserToken()
+        val jsonBody =
+            JSONObject()
 
-        val jsonBody = JSONObject().apply {
-            put("email", email)
-            put("username", username)
-            put("device_id", deviceId)
+        try {
+
+            jsonBody.put(
+                "email",
+                email
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "OTP",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        Log.d(
+            "OTP",
+            "Requesting OTP for $email"
+        )
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/auth/send-otp/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "OTP",
+                        "HTTP ${response.code}: $responseBody"
+                    )
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext false
+                    }
+
+                    val json =
+                        JSONObject(responseBody)
+
+                    return@withContext (
+                            json.optString("status")
+                                    == "success"
+                            )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "OTP",
+                "Send OTP failed",
+                e
+            )
+
+            false
+        }
+    }
+
+
+    // =========================================================
+    // VERIFY EMAIL LOGIN
+    // =========================================================
+
+    suspend fun verifyEmailWithBackend(
+        email: String,
+        username: String,
+        code: String
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        val deviceId =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "email",
+                email
+            )
+
+            jsonBody.put(
+                "username",
+                username
+            )
+
+            jsonBody.put(
+                "device_id",
+                deviceId
+            )
+
+            jsonBody.put(
+                "code",
+                code
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "EMAIL_AUTH",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext false
         }
 
         Log.d(
             "EMAIL_AUTH",
-            "Verifying email: $email device=$deviceId"
+            "Verifying email=$email device=$deviceId"
         )
 
-        val request = Request.Builder()
-            .url("${baseUrl}api/auth/verify-email/")
-            .post(
-                jsonBody
-                    .toString()
-                    .toRequestBody(jsonMediaType)
-            )
-            .build()
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/auth/verify-email/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
 
         try {
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(request)
+                .execute()
+                .use { response ->
 
-                val responseBody =
-                    response.body?.string() ?: ""
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
 
-                Log.d(
-                    "EMAIL_AUTH",
-                    "HTTP ${response.code}: $responseBody"
-                )
-
-                if (!response.isSuccessful) {
-                    return@withContext false
-                }
-
-                val json = JSONObject(responseBody)
-
-                if (
-                    json.optString("status") != "success"
-                ) {
-                    Log.e(
+                    Log.d(
                         "EMAIL_AUTH",
-                        "Failed: ${json.optString("message")}"
+                        "HTTP ${response.code}: $responseBody"
                     )
-                    return@withContext false
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext false
+                    }
+
+                    val json =
+                        JSONObject(responseBody)
+
+                    if (
+                        json.optString("status")
+                        != "success"
+                    ) {
+
+                        Log.e(
+                            "EMAIL_AUTH",
+                            "Failed: ${json.optString("message")}"
+                        )
+
+                        return@withContext false
+                    }
+
+                    val userObj =
+                        json.optJSONObject("user")
+
+                    val authToken =
+                        userObj?.optString(
+                            "auth_token",
+                            ""
+                        )
+
+                    if (authToken.isNullOrBlank()) {
+
+                        return@withContext false
+                    }
+
+                    saveEmailAuthToken(authToken)
+
+                    saveEmailUser(
+                        email,
+                        username
+                    )
+
+                    val userId =
+                        userObj?.optInt(
+                            "user_id",
+                            0
+                        ) ?: 0
+
+                    sharedPreferences.edit()
+                        .putInt(
+                            "email_user_id",
+                            userId
+                        )
+                        .apply()
+
+                    Log.d(
+                        "EMAIL_AUTH",
+                        "Email verified and token saved"
+                    )
+
+                    return@withContext true
                 }
-
-                val userObj = json.optJSONObject("user")
-                val authToken = userObj?.optString("auth_token", "")
-
-                if (authToken.isNullOrBlank()) {
-                    return@withContext false
-                }
-
-                // Save token in device - koi aur login nahi kar payega
-                saveEmailAuthToken(authToken)
-                saveEmailUser(email, username)
-                val userId = userObj?.optInt("user_id", 0) ?: 0
-                sharedPreferences.edit().putInt("email_user_id", userId).apply()
-
-                Log.d(
-                    "EMAIL_AUTH",
-                    "Email verified and token saved"
-                )
-
-                return@withContext true
-            }
 
         } catch (e: Exception) {
 
@@ -182,105 +422,138 @@ class GameSessionManager(private val context: Context) {
         }
     }
 
+
+    // =========================================================
+    // MATCHMAKING
+    // =========================================================
+
     suspend fun registerAndJoinMatch(
         isTwoPlayer: Boolean
     ): String = withContext(Dispatchers.IO) {
 
-        val userToken = getOrCreateUserToken()
+        val userToken =
+            getOrCreateUserToken()
 
-        val jsonBody = JSONObject().apply {
-            put("player_token", userToken)
-            put("player_name", getSavedUsername())
-            put("is_two_player_mode", isTwoPlayer)
-        }
-
-        Log.d(
-            "MATCHMAKING",
-            "Joining matchmaking: token=$userToken twoPlayer=$isTwoPlayer"
-        )
-
-        val request = Request.Builder()
-            .url("${baseUrl}initialize-game/")
-            .post(
-                jsonBody
-                    .toString()
-                    .toRequestBody(jsonMediaType)
-            )
-            .build()
+        val jsonBody =
+            JSONObject()
 
         try {
 
-            client.newCall(request).execute().use { response ->
+            jsonBody.put(
+                "player_token",
+                userToken
+            )
 
-                val responseBody =
-                    response.body?.string() ?: ""
+            jsonBody.put(
+                "player_name",
+                getSavedUsername()
+            )
 
-                Log.d(
-                    "MATCHMAKING",
-                    "HTTP ${response.code}: $responseBody"
-                )
-
-                if (!response.isSuccessful) {
-
-                    Log.e(
-                        "MATCHMAKING",
-                        "Server rejected matchmaking: $responseBody"
-                    )
-
-                    return@withContext ""
-                }
-
-                val json = JSONObject(responseBody)
-
-                val status =
-                    json.optString("status", "")
-
-                if (
-                    status == "error"
-                ) {
-
-                    Log.e(
-                        "MATCHMAKING",
-                        "Matchmaking error: ${
-                            json.optString(
-                                "message",
-                                "Unknown error"
-                            )
-                        }"
-                    )
-
-                    return@withContext ""
-                }
-
-                val gameId =
-                    json.optString(
-                        "game_id",
-                        ""
-                    )
-
-                if (gameId.isBlank()) {
-
-                    Log.e(
-                        "MATCHMAKING",
-                        "Server did not return game_id"
-                    )
-
-                    return@withContext ""
-                }
-
-                Log.d(
-                    "MATCHMAKING",
-                    "Successfully joined game=$gameId"
-                )
-
-                return@withContext gameId
-            }
+            jsonBody.put(
+                "is_two_player_mode",
+                isTwoPlayer
+            )
 
         } catch (e: Exception) {
 
             Log.e(
                 "MATCHMAKING",
-                "Network error during matchmaking",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext ""
+        }
+
+        Log.d(
+            "MATCHMAKING",
+            "Joining matchmaking: " +
+                    "token=$userToken twoPlayer=$isTwoPlayer"
+        )
+
+        val request =
+            Request.Builder()
+                .url("${baseUrl}initialize-game/")
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "MATCHMAKING",
+                        "HTTP ${response.code}: $responseBody"
+                    )
+
+                    if (!response.isSuccessful) {
+
+                        Log.e(
+                            "MATCHMAKING",
+                            "Server rejected: $responseBody"
+                        )
+
+                        return@withContext ""
+                    }
+
+                    val json =
+                        JSONObject(responseBody)
+
+                    val status =
+                        json.optString("status", "")
+
+                    if (status == "error") {
+
+                        Log.e(
+                            "MATCHMAKING",
+                            "Error: ${
+                                json.optString(
+                                    "message",
+                                    "Unknown"
+                                )
+                            }"
+                        )
+
+                        return@withContext ""
+                    }
+
+                    val gameId =
+                        json.optString("game_id", "")
+
+                    if (gameId.isBlank()) {
+
+                        Log.e(
+                            "MATCHMAKING",
+                            "Server did not return game_id"
+                        )
+
+                        return@withContext ""
+                    }
+
+                    Log.d(
+                        "MATCHMAKING",
+                        "Joined game=$gameId"
+                    )
+
+                    return@withContext gameId
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "MATCHMAKING",
+                "Network error",
                 e
             )
 
@@ -288,240 +561,149 @@ class GameSessionManager(private val context: Context) {
         }
     }
 
-    suspend fun fetchUserBalanceFromServer(deviceToken: String): ServerBalanceResult =
-        withContext(Dispatchers.IO) {
-            val request = Request.Builder()
-                .url("${baseUrl}api/deposit/balance/$deviceToken/")
-                .get()
-                .build()
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext ServerBalanceResult(0, 0)
-                    val data = JSONObject(response.body?.string() ?: "")
 
-                    return@withContext ServerBalanceResult(
-                        coins = data.optInt("coins", 0),
-                        lockedCoins = data.optInt("locked_coins", 0)
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("SESSION_MGR", "Balance metric synchronization footprint failure", e)
-                ServerBalanceResult(0, 0)
-            }
-        }
+    // =========================================================
+    // PLAY WITH FRIENDS — CREATE ROOM
+    // =========================================================
 
-    suspend fun fetchAdminPaymentDetails(): Map<String, Pair<String, String>> =
-        withContext(Dispatchers.IO) {
-            val resultMap = mutableMapOf<String, Pair<String, String>>()
-            val request = Request.Builder()
-                .url("${baseUrl}api/deposit/methods/")
-                .get()
-                .build()
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext resultMap
-                    val root = JSONObject(response.body?.string() ?: "")
-                    val methodsJson = root.getJSONObject("methods")
-
-                    val keys = methodsJson.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        val details = methodsJson.getJSONObject(key)
-                        resultMap[key] =
-                            Pair(details.getString("name"), details.getString("number"))
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("SESSION_MGR", "Payment details fetch error", e)
-            }
-            return@withContext resultMap
-        }
-
-    suspend fun submitDepositNotification(
-        amount: Int,
-        method: String,
-        senderName: String
-    ): Boolean = withContext(Dispatchers.IO) {
-        val userToken = getOrCreateUserToken()
-        val jsonBody = JSONObject().apply {
-            put("device_token", userToken)
-            put("amount", amount)
-            put("payment_method", method)
-            put("sender_name", senderName)
-        }
-        val request = Request.Builder()
-            .url("${baseUrl}api/deposit/submit/")
-            .post(jsonBody.toString().toRequestBody(jsonMediaType))
-            .build()
-        try {
-            client.newCall(request).execute().use { response ->
-                return@withContext response.isSuccessful
-            }
-        } catch (e: Exception) {
-            Log.e("SESSION_MGR", "Submission error", e)
-            false
-        }
-    }
-
-    suspend fun fetchTransactionHistory(deviceToken: String): List<TransactionLog> =
-        withContext(Dispatchers.IO) {
-            val historyList = mutableListOf<TransactionLog>()
-            val request = Request.Builder()
-                .url("${baseUrl}api/deposit/history/$deviceToken/")
-                .get()
-                .build()
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext historyList
-                    val root = JSONObject(response.body?.string() ?: "")
-                    val transactions = root.getJSONArray("transactions")
-
-                    for (i in 0 until transactions.length()) {
-                        val obj = transactions.getJSONObject(i)
-                        historyList.add(
-                            TransactionLog(
-                                type = obj.getString("type"),
-                                amount = obj.getInt("amount"),
-                                status = obj.getString("status"),
-                                dateString = obj.getString("date")
-                            )
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("SESSION_MGR", "Failed to fetch history ledger logs", e)
-            }
-            return@withContext historyList
-        }
-
-    suspend fun submitWithdrawalNotification(
-        amount: Int,
-        method: String,
-        title: String,
-        number: String
-    ): Boolean = withContext(Dispatchers.IO) {
-        val userToken = getOrCreateUserToken()
-        val jsonBody = JSONObject().apply {
-            put("device_token", userToken)
-            put("amount", amount)
-            put("method", method)
-            put("account_title", title)
-            put("account_number", number)
-        }
-        val request = Request.Builder()
-            .url("${baseUrl}api/withdraw/submit/")
-            .post(jsonBody.toString().toRequestBody(jsonMediaType))
-            .build()
-        try {
-            client.newCall(request).execute()
-                .use { response -> return@withContext response.isSuccessful }
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    suspend fun joinWagerMatch(
-        gameId: String,
-        betAmount: Int
+    suspend fun createFriendRoom(
+        betAmount: Int,
+        isTwoPlayer: Boolean
     ): JSONObject? = withContext(Dispatchers.IO) {
 
-        val userToken = getOrCreateUserToken()
+        val userToken =
+            getOrCreateUserToken()
 
-        val jsonBody = JSONObject().apply {
-            put("device_token", userToken)
-            put("game_id", gameId)
-            put("bet_amount", betAmount)
-        }
-
-        Log.d(
-            "WAGER",
-            "Sending wager request: " +
-                    "device_token=$userToken " +
-                    "game_id=$gameId " +
-                    "bet_amount=$betAmount"
-        )
-
-        val request = Request.Builder()
-            .url("${baseUrl}api/wager/join/")
-            .post(
-                jsonBody
-                    .toString()
-                    .toRequestBody(jsonMediaType)
-            )
-            .build()
+        val jsonBody =
+            JSONObject()
 
         try {
 
-            client.newCall(request).execute().use { response ->
+            jsonBody.put(
+                "player_token",
+                userToken
+            )
 
-                val responseBody =
-                    response.body?.string() ?: ""
+            jsonBody.put(
+                "player_name",
+                getSavedUsername()
+            )
 
-                Log.d(
-                    "WAGER",
-                    "HTTP ${response.code}: $responseBody"
-                )
+            jsonBody.put(
+                "bet_amount",
+                betAmount
+            )
 
-                val jsonResponse = try {
-                    JSONObject(responseBody)
-                } catch (e: Exception) {
-
-                    JSONObject().apply {
-                        put("status", "error")
-                        put(
-                            "message",
-                            "Server returned invalid JSON: $responseBody"
-                        )
-                    }
-                }
-
-                if (!response.isSuccessful) {
-
-                    Log.e(
-                        "WAGER",
-                        "Wager rejected. " +
-                                "HTTP=${response.code} " +
-                                "Response=$jsonResponse"
-                    )
-
-                    return@withContext jsonResponse
-                }
-
-                if (
-                    jsonResponse.optString("status") == "error" ||
-                    jsonResponse.optBoolean("success", true) == false
-                ) {
-
-                    Log.e(
-                        "WAGER",
-                        "Wager failed: " +
-                                jsonResponse.optString(
-                                    "message",
-                                    "Unknown server error"
-                                )
-                    )
-
-                    return@withContext jsonResponse
-                }
-
-                Log.d(
-                    "WAGER",
-                    "Wager successfully accepted: $jsonResponse"
-                )
-
-                return@withContext jsonResponse
-            }
+            jsonBody.put(
+                "is_two_player_mode",
+                isTwoPlayer
+            )
 
         } catch (e: Exception) {
 
             Log.e(
-                "WAGER",
-                "Network error while joining wager",
+                "FRIENDS",
+                "Failed to build payload",
                 e
             )
 
             return@withContext JSONObject().apply {
-                put("status", "error")
+
+                put(
+                    "status",
+                    "error"
+                )
+
+                put(
+                    "message",
+                    "Failed to build request"
+                )
+            }
+        }
+
+        Log.d(
+            "FRIENDS",
+            "Creating room: token=$userToken " +
+                    "bet=$betAmount 2P=$isTwoPlayer"
+        )
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/game/create-room/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "FRIENDS",
+                        "Create room HTTP ${response.code}: $body"
+                    )
+
+                    // =========================================
+                    // ALWAYS parse the body, even on 4xx errors.
+                    // Server returns { status, message }.
+                    // =========================================
+
+                    val parsed =
+                        try {
+
+                            JSONObject(body)
+
+                        } catch (e: Exception) {
+
+                            null
+                        }
+
+                    if (parsed != null) {
+
+                        return@withContext parsed
+                    }
+
+                    return@withContext JSONObject().apply {
+
+                        put(
+                            "status",
+                            "error"
+                        )
+
+                        put(
+                            "message",
+                            "Server error ${response.code}"
+                        )
+                    }
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "FRIENDS",
+                "Create room failed",
+                e
+            )
+
+            JSONObject().apply {
+
+                put(
+                    "status",
+                    "error"
+                )
+
                 put(
                     "message",
                     "Network error: ${e.message}"
@@ -530,47 +712,972 @@ class GameSessionManager(private val context: Context) {
         }
     }
 
-    suspend fun fetchUserReferralCode(deviceToken: String): String = withContext(Dispatchers.IO) {
-        val request = Request.Builder()
-            .url("${baseUrl}api/user/referral/$deviceToken/")
-            .get()
-            .build()
+
+    // =========================================================
+    // PLAY WITH FRIENDS — JOIN ROOM
+    // =========================================================
+
+    suspend fun joinFriendRoom(
+        roomCode: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
         try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext "ERROR"
-                val data = JSONObject(response.body?.string() ?: "")
-                return@withContext data.optString("referral_code", "NONE")
-            }
+
+            jsonBody.put(
+                "room_code",
+                roomCode.uppercase()
+            )
+
+            jsonBody.put(
+                "player_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "player_name",
+                getSavedUsername()
+            )
+
         } catch (e: Exception) {
+
+            Log.e(
+                "FRIENDS",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext JSONObject().apply {
+
+                put(
+                    "status",
+                    "error"
+                )
+
+                put(
+                    "message",
+                    "Failed to build request"
+                )
+            }
+        }
+
+        Log.d(
+            "FRIENDS",
+            "Joining room $roomCode with token=$userToken"
+        )
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/game/join-room/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "FRIENDS",
+                        "Join room HTTP ${response.code}: $body"
+                    )
+
+                    // =========================================
+                    // ALWAYS parse the body, even on 4xx errors.
+                    // =========================================
+
+                    val parsed =
+                        try {
+
+                            JSONObject(body)
+
+                        } catch (e: Exception) {
+
+                            null
+                        }
+
+                    if (parsed != null) {
+
+                        return@withContext parsed
+                    }
+
+                    return@withContext JSONObject().apply {
+
+                        put(
+                            "status",
+                            "error"
+                        )
+
+                        put(
+                            "message",
+                            "Server error ${response.code}"
+                        )
+                    }
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "FRIENDS",
+                "Join room failed",
+                e
+            )
+
+            JSONObject().apply {
+
+                put(
+                    "status",
+                    "error"
+                )
+
+                put(
+                    "message",
+                    "Network error: ${e.message}"
+                )
+            }
+        }
+    }
+
+
+    // =========================================================
+    // PLAY WITH FRIENDS — CANCEL ROOM
+    // =========================================================
+
+    suspend fun cancelFriendRoom(
+        gameId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "player_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "game_id",
+                gameId
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "FRIENDS",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        Log.d(
+            "FRIENDS",
+            "Cancelling room gameId=$gameId"
+        )
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/game/cancel-room/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "FRIENDS",
+                        "Cancel HTTP ${response.code}: $body"
+                    )
+
+                    response.isSuccessful
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "FRIENDS",
+                "Cancel failed",
+                e
+            )
+
+            false
+        }
+    }
+
+
+    // =========================================================
+    // PLAY WITH FRIENDS — GET ROOM STATUS
+    // =========================================================
+
+    suspend fun getRoomStatus(
+        gameId: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/game/room-status/$gameId/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext null
+                    }
+
+                    JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "FRIENDS",
+                "Get room status failed",
+                e
+            )
+
+            null
+        }
+    }
+
+
+    // =========================================================
+    // BALANCE
+    // =========================================================
+
+    suspend fun fetchUserBalanceFromServer(
+        deviceToken: String
+    ): ServerBalanceResult = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/deposit/balance/$deviceToken/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext ServerBalanceResult(
+                            0,
+                            0
+                        )
+                    }
+
+                    val data =
+                        JSONObject(
+                            response.body?.string()
+                                ?: ""
+                        )
+
+                    return@withContext ServerBalanceResult(
+                        coins = data.optInt(
+                            "coins",
+                            0
+                        ),
+
+                        lockedCoins = data.optInt(
+                            "locked_coins",
+                            0
+                        )
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "SESSION_MGR",
+                "Balance fetch failure",
+                e
+            )
+
+            ServerBalanceResult(0, 0)
+        }
+    }
+
+
+    // =========================================================
+    // ADMIN PAYMENT DETAILS
+    // =========================================================
+
+    suspend fun fetchAdminPaymentDetails():
+            Map<String, Pair<String, String>> =
+        withContext(Dispatchers.IO) {
+
+            val resultMap =
+                mutableMapOf<String, Pair<String, String>>()
+
+            val request =
+                Request.Builder()
+                    .url(
+                        "${baseUrl}api/deposit/methods/"
+                    )
+                    .get()
+                    .build()
+
+            try {
+
+                client.newCall(request)
+                    .execute()
+                    .use { response ->
+
+                        if (!response.isSuccessful) {
+
+                            return@withContext resultMap
+                        }
+
+                        val root =
+                            JSONObject(
+                                response.body?.string()
+                                    ?: ""
+                            )
+
+                        val methodsJson =
+                            root.getJSONObject("methods")
+
+                        val keys =
+                            methodsJson.keys()
+
+                        while (keys.hasNext()) {
+
+                            val key =
+                                keys.next()
+
+                            val details =
+                                methodsJson
+                                    .getJSONObject(key)
+
+                            resultMap[key] =
+                                Pair(
+                                    details.getString(
+                                        "name"
+                                    ),
+                                    details.getString(
+                                        "number"
+                                    )
+                                )
+                        }
+                    }
+
+            } catch (e: Exception) {
+
+                Log.e(
+                    "SESSION_MGR",
+                    "Payment details fetch error",
+                    e
+                )
+            }
+
+            return@withContext resultMap
+        }
+
+
+    // =========================================================
+    // DEPOSIT NOTIFICATION
+    // =========================================================
+
+    suspend fun submitDepositNotification(
+        amount: Int,
+        method: String,
+        senderName: String
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "amount",
+                amount
+            )
+
+            jsonBody.put(
+                "payment_method",
+                method
+            )
+
+            jsonBody.put(
+                "sender_name",
+                senderName
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "SESSION_MGR",
+                "Failed to build deposit payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/deposit/submit/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    return@withContext response.isSuccessful
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "SESSION_MGR",
+                "Submission error",
+                e
+            )
+
+            false
+        }
+    }
+
+
+    // =========================================================
+    // TRANSACTION HISTORY
+    // =========================================================
+
+    suspend fun fetchTransactionHistory(
+        deviceToken: String
+    ): List<TransactionLog> = withContext(Dispatchers.IO) {
+
+        val historyList =
+            mutableListOf<TransactionLog>()
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/deposit/history/$deviceToken/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext historyList
+                    }
+
+                    val root =
+                        JSONObject(
+                            response.body?.string()
+                                ?: ""
+                        )
+
+                    val transactions =
+                        root.getJSONArray("transactions")
+
+                    for (
+                    i in 0
+                            until transactions.length()
+                    ) {
+
+                        val obj =
+                            transactions
+                                .getJSONObject(i)
+
+                        historyList.add(
+                            TransactionLog(
+                                type = obj.getString(
+                                    "type"
+                                ),
+
+                                amount = obj.getInt(
+                                    "amount"
+                                ),
+
+                                status = obj.getString(
+                                    "status"
+                                ),
+
+                                dateString = obj.getString(
+                                    "date"
+                                )
+                            )
+                        )
+                    }
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "SESSION_MGR",
+                "History fetch error",
+                e
+            )
+        }
+
+        return@withContext historyList
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL NOTIFICATION
+    // =========================================================
+
+    suspend fun submitWithdrawalNotification(
+        amount: Int,
+        method: String,
+        title: String,
+        number: String
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "amount",
+                amount
+            )
+
+            jsonBody.put(
+                "method",
+                method
+            )
+
+            jsonBody.put(
+                "account_title",
+                title
+            )
+
+            jsonBody.put(
+                "account_number",
+                number
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "SESSION_MGR",
+                "Failed to build withdrawal payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/withdraw/submit/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    return@withContext response.isSuccessful
+                }
+
+        } catch (e: Exception) {
+
+            false
+        }
+    }
+
+
+    // =========================================================
+    // JOIN WAGER MATCH
+    // =========================================================
+
+    suspend fun joinWagerMatch(
+        gameId: String,
+        betAmount: Int
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "game_id",
+                gameId
+            )
+
+            jsonBody.put(
+                "bet_amount",
+                betAmount
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "WAGER",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext JSONObject().apply {
+
+                put(
+                    "status",
+                    "error"
+                )
+
+                put(
+                    "message",
+                    "Failed to build request"
+                )
+            }
+        }
+
+        Log.d(
+            "WAGER",
+            "Sending wager: device=$userToken " +
+                    "game=$gameId bet=$betAmount"
+        )
+
+        val request =
+            Request.Builder()
+                .url("${baseUrl}api/wager/join/")
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "WAGER",
+                        "HTTP ${response.code}: $responseBody"
+                    )
+
+                    val jsonResponse =
+                        try {
+
+                            JSONObject(responseBody)
+
+                        } catch (e: Exception) {
+
+                            JSONObject().apply {
+
+                                put(
+                                    "status",
+                                    "error"
+                                )
+
+                                put(
+                                    "message",
+                                    "Server returned invalid JSON: " +
+                                            responseBody
+                                )
+                            }
+                        }
+
+                    if (!response.isSuccessful) {
+
+                        Log.e(
+                            "WAGER",
+                            "Rejected. HTTP=${response.code} " +
+                                    "Response=$jsonResponse"
+                        )
+
+                        return@withContext jsonResponse
+                    }
+
+                    if (
+                        jsonResponse.optString("status")
+                        == "error"
+                        || jsonResponse.optBoolean(
+                            "success",
+                            true
+                        ) == false
+                    ) {
+
+                        Log.e(
+                            "WAGER",
+                            "Failed: ${
+                                jsonResponse.optString(
+                                    "message",
+                                    "Unknown"
+                                )
+                            }"
+                        )
+
+                        return@withContext jsonResponse
+                    }
+
+                    Log.d(
+                        "WAGER",
+                        "Accepted: $jsonResponse"
+                    )
+
+                    return@withContext jsonResponse
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "WAGER",
+                "Network error",
+                e
+            )
+
+            return@withContext JSONObject().apply {
+
+                put(
+                    "status",
+                    "error"
+                )
+
+                put(
+                    "message",
+                    "Network error: ${e.message}"
+                )
+            }
+        }
+    }
+
+
+    // =========================================================
+    // REFERRAL CODE
+    // =========================================================
+
+    suspend fun fetchUserReferralCode(
+        deviceToken: String
+    ): String = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/referral/$deviceToken/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext "ERROR"
+                    }
+
+                    val data =
+                        JSONObject(
+                            response.body?.string()
+                                ?: ""
+                        )
+
+                    return@withContext data.optString(
+                        "referral_code",
+                        "NONE"
+                    )
+                }
+
+        } catch (e: Exception) {
+
             "ERROR"
         }
     }
 
-    suspend fun verifyAndApplyReferral(deviceToken: String, code: String): Boolean =
-        withContext(Dispatchers.IO) {
-            val jsonPayload = JSONObject().apply {
-                put("device_token", deviceToken)
-                put("referral_code", code)
-            }.toString()
 
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val requestBody = jsonPayload.toRequestBody(mediaType)
+    // =========================================================
+    // APPLY REFERRAL
+    // =========================================================
 
-            val request = Request.Builder()
-                .url("${baseUrl}api/user/verify-referral/")
-                .post(requestBody)
+    suspend fun verifyAndApplyReferral(
+        deviceToken: String,
+        code: String
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                deviceToken
+            )
+
+            jsonBody.put(
+                "referral_code",
+                code
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "SESSION_MGR",
+                "Failed to build referral payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/verify-referral/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
                 .build()
 
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext false
-                    val data = JSONObject(response.body?.string() ?: "")
-                    return@withContext data.optString("status") == "success"
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext false
+                    }
+
+                    val data =
+                        JSONObject(
+                            response.body?.string()
+                                ?: ""
+                        )
+
+                    return@withContext (
+                            data.optString("status")
+                                    == "success"
+                            )
                 }
-            } catch (e: Exception) {
-                false
-            }
+
+        } catch (e: Exception) {
+
+            false
         }
+    }
+
+
+    // =========================================================
+    // SYNC USER PROFILE
+    // =========================================================
 
     suspend fun syncUserProfile(
         deviceToken: String,
@@ -581,12 +1688,27 @@ class GameSessionManager(private val context: Context) {
 
         val requestBodyBuilder =
             okhttp3.MultipartBody.Builder()
-                .setType(okhttp3.MultipartBody.FORM)
-                .addFormDataPart("device_token", deviceToken)
-                .addFormDataPart("nickname", nickname)
-                .addFormDataPart("email", email)
+                .setType(
+                    okhttp3.MultipartBody.FORM
+                )
+                .addFormDataPart(
+                    "device_token",
+                    deviceToken
+                )
+                .addFormDataPart(
+                    "nickname",
+                    nickname
+                )
+                .addFormDataPart(
+                    "email",
+                    email
+                )
 
-        if (profilePicFile != null && profilePicFile.exists()) {
+        if (
+            profilePicFile != null
+            && profilePicFile.exists()
+        ) {
+
             requestBodyBuilder.addFormDataPart(
                 "profile_pic",
                 profilePicFile.name,
@@ -596,48 +1718,69 @@ class GameSessionManager(private val context: Context) {
             )
         }
 
-        val request = Request.Builder()
-            .url("${baseUrl}api/user/update-profile/")
-            .post(requestBodyBuilder.build())
-            .build()
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/update-profile/"
+                )
+                .post(requestBodyBuilder.build())
+                .build()
 
         try {
 
-            client.newCall(request).execute().use { response ->
+            client.newCall(request)
+                .execute()
+                .use { response ->
 
-                val responseBody =
-                    response.body?.string() ?: ""
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
 
-                Log.d(
-                    "PROFILE",
-                    "HTTP ${response.code}: $responseBody"
-                )
+                    Log.d(
+                        "PROFILE",
+                        "HTTP ${response.code}: $responseBody"
+                    )
 
-                if (!response.isSuccessful) {
-                    return@withContext false
-                }
+                    if (!response.isSuccessful) {
 
-                val json = JSONObject(responseBody)
+                        return@withContext false
+                    }
 
-                val picUrl =
-                    json.optString("profile_pic_url", "")
+                    val json =
+                        JSONObject(responseBody)
 
-                if (picUrl.isNotBlank()) {
-                    sharedPreferences.edit()
-                        .putString("profile_pic_url", picUrl)
-                        .apply()
-                }
-
-                // username / email local save taake screen change par gayab na ho
-                sharedPreferences.edit()
-                    .putString("email_user_name", nickname)
-                    .putString("email_user_email", email)
-                    .apply()
-
-                return@withContext (
-                        json.optString("status") == "success"
+                    val picUrl =
+                        json.optString(
+                            "profile_pic_url",
+                            ""
                         )
-            }
+
+                    if (picUrl.isNotBlank()) {
+
+                        sharedPreferences.edit()
+                            .putString(
+                                "profile_pic_url",
+                                picUrl
+                            )
+                            .apply()
+                    }
+
+                    sharedPreferences.edit()
+                        .putString(
+                            "email_user_name",
+                            nickname
+                        )
+                        .putString(
+                            "email_user_email",
+                            email
+                        )
+                        .apply()
+
+                    return@withContext (
+                            json.optString("status")
+                                    == "success"
+                            )
+                }
 
         } catch (e: Exception) {
 
@@ -651,24 +1794,29 @@ class GameSessionManager(private val context: Context) {
         }
     }
 
-    // --------------------------------------------------
-    // GIFT / SPIN - Attach
-    // --------------------------------------------------
 
-    suspend fun fetchGiftConfig(): GiftConfig =
-        withContext(Dispatchers.IO) {
+    // =========================================================
+    // GIFT CONFIG
+    // =========================================================
 
-            val request = Request.Builder()
+    suspend fun fetchGiftConfig():
+            GiftConfig = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
                 .url("${baseUrl}api/gift/config/")
                 .get()
                 .build()
 
-            try {
+        try {
 
-                client.newCall(request).execute().use { response ->
+            client.newCall(request)
+                .execute()
+                .use { response ->
 
                     val responseBody =
-                        response.body?.string() ?: ""
+                        response.body?.string()
+                            ?: ""
 
                     Log.d(
                         "GIFT",
@@ -676,146 +1824,249 @@ class GameSessionManager(private val context: Context) {
                     )
 
                     if (!response.isSuccessful) {
-                        return@withContext GiftConfig(false, 40)
+
+                        return@withContext GiftConfig(
+                            false,
+                            40
+                        )
                     }
 
-                    val json = JSONObject(responseBody)
+                    val json =
+                        JSONObject(responseBody)
 
                     return@withContext GiftConfig(
-                        enabled = json.optString("gift_enabled", "0") == "1",
-                        paidCost = json.optInt("paid_spin_cost", 40)
+                        enabled = (
+                                json.optString(
+                                    "gift_enabled",
+                                    "0"
+                                ) == "1"
+                                ),
+
+                        paidCost = json.optInt(
+                            "paid_spin_cost",
+                            40
+                        )
                     )
                 }
 
-            } catch (e: Exception) {
+        } catch (e: Exception) {
 
-                Log.e(
-                    "GIFT",
-                    "Config fetch failed",
-                    e
-                )
-
-                GiftConfig(false, 40)
-            }
-        }
-
-    suspend fun getSpinStatus(): JSONObject? =
-        withContext(Dispatchers.IO) {
-
-            val userToken = getOrCreateUserToken()
-
-            val jsonBody = JSONObject().apply {
-                put("device_token", userToken)
-            }
-
-            Log.d(
+            Log.e(
                 "GIFT",
-                "Getting spin status for token=$userToken"
+                "Config fetch failed",
+                e
             )
 
-            val request = Request.Builder()
+            GiftConfig(false, 40)
+        }
+    }
+
+
+    // =========================================================
+    // SPIN STATUS
+    // =========================================================
+
+    suspend fun getSpinStatus():
+            JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "GIFT",
+                "Failed to build status payload",
+                e
+            )
+
+            return@withContext null
+        }
+
+        Log.d(
+            "GIFT",
+            "Getting spin status for token=$userToken"
+        )
+
+        val request =
+            Request.Builder()
                 .url("${baseUrl}api/gift/status/")
                 .post(
-                    jsonBody
-                        .toString()
-                        .toRequestBody(jsonMediaType)
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
                 )
                 .build()
 
-            try {
+        try {
 
-                client.newCall(request).execute().use { response ->
+            client.newCall(request)
+                .execute()
+                .use { response ->
 
                     val responseBody =
-                        response.body?.string() ?: ""
+                        response.body?.string()
+                            ?: ""
 
                     Log.d(
                         "GIFT",
                         "Status HTTP ${response.code}: $responseBody"
                     )
 
-                    return@withContext JSONObject(responseBody)
+                    return@withContext JSONObject(
+                        responseBody
+                    )
                 }
 
-            } catch (e: Exception) {
+        } catch (e: Exception) {
 
-                Log.e(
-                    "GIFT",
-                    "Spin status network error",
-                    e
-                )
-
-                return@withContext null
-            }
-        }
-
-    suspend fun submitSpin(): JSONObject? =
-        withContext(Dispatchers.IO) {
-
-            val userToken = getOrCreateUserToken()
-
-            val jsonBody = JSONObject().apply {
-                put("device_token", userToken)
-            }
-
-            Log.d(
+            Log.e(
                 "GIFT",
-                "Submitting spin for token=$userToken"
+                "Spin status network error",
+                e
             )
 
-            val request = Request.Builder()
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // APP CONFIG (support contacts, terms, version, etc.)
+    // =========================================================
+
+    suspend fun fetchAppConfig():
+            JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url("${baseUrl}api/config/app/")
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "APP_CONFIG",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "APP_CONFIG",
+                "Fetch failed",
+                e
+            )
+
+            null
+        }
+    }
+
+
+    // =========================================================
+    // SUBMIT SPIN
+    // =========================================================
+
+    suspend fun submitSpin():
+            JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "GIFT",
+                "Failed to build spin payload",
+                e
+            )
+
+            return@withContext null
+        }
+
+        Log.d(
+            "GIFT",
+            "Submitting spin for token=$userToken"
+        )
+
+        val request =
+            Request.Builder()
                 .url("${baseUrl}api/gift/spin/")
                 .post(
-                    jsonBody
-                        .toString()
-                        .toRequestBody(jsonMediaType)
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
                 )
                 .build()
 
-            try {
+        try {
 
-                client.newCall(request).execute().use { response ->
+            client.newCall(request)
+                .execute()
+                .use { response ->
 
                     val responseBody =
-                        response.body?.string() ?: ""
+                        response.body?.string()
+                            ?: ""
 
                     Log.d(
                         "GIFT",
                         "Spin HTTP ${response.code}: $responseBody"
                     )
 
-                    return@withContext JSONObject(responseBody)
+                    return@withContext JSONObject(
+                        responseBody
+                    )
                 }
 
-            } catch (e: Exception) {
-
-                Log.e(
-                    "GIFT",
-                    "Network error during spin",
-                    e
-                )
-
-                return@withContext null
-            }
-        }
-
-    suspend fun sendOtpEmail(email: String, code: String): Boolean = withContext(Dispatchers.IO) {
-        val jsonBody = JSONObject().apply {
-            put("email", email)
-            put("code", code)
-        }
-        val request = Request.Builder()
-            .url("${baseUrl}api/auth/send-otp/")
-            .post(jsonBody.toString().toRequestBody(jsonMediaType))
-            .build()
-        try {
-            client.newCall(request).execute().use { response ->
-                Log.d("OTP", "Send OTP HTTP ${response.code}")
-                return@withContext response.isSuccessful
-            }
         } catch (e: Exception) {
-            Log.e("OTP", "Send OTP failed", e)
-            false
+
+            Log.e(
+                "GIFT",
+                "Network error during spin",
+                e
+            )
+
+            return@withContext null
         }
     }
 }

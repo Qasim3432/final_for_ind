@@ -9,17 +9,22 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.lifecycle.lifecycleScope
+
 import com.example.final_for_ind.network.GameSessionManager
 import com.example.final_for_ind.network.GameSocket
 import com.example.final_for_ind.screens.dice_board.LudoBoardView
 import com.example.final_for_ind.screens.dice_board.WinnerScreen
+
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
 import org.json.JSONObject
+
 import kotlin.random.Random
 
 class MainActivityL : AppCompatActivity() {
@@ -37,6 +42,14 @@ class MainActivityL : AppCompatActivity() {
     private var isAnimating = false
 
     private var clientHasRolledLock = false
+
+    // =========================================================
+    // FINISH FLAGS
+    // =========================================================
+
+    private var gameFinished = false
+
+    private var surrenderedByUser = false
 
     // =========================================================
     // PROFILE VIEWS FOR TURN HIGHLIGHT
@@ -93,6 +106,13 @@ class MainActivityL : AppCompatActivity() {
             findViewById<Button>(
                 R.id.btnTestFinishBlue
             )
+
+        // =====================================================
+        // HIDE TEST BUTTON
+        // =====================================================
+
+        btnTestFinishBlue.visibility =
+            View.GONE
 
         // =====================================================
         // PROFILE VIEWS
@@ -159,15 +179,7 @@ class MainActivityL : AppCompatActivity() {
             isTwoPlayerMode
 
         // =====================================================
-        // IMPORTANT
-        //
-        // 2 PLAYER:
-        //
-        // BLUE + GREEN ONLY
-        //
-        // 4 PLAYER:
-        //
-        // BLUE + RED + GREEN + YELLOW
+        // PROFILE VISIBILITY
         // =====================================================
 
         if (isTwoPlayerMode) {
@@ -254,7 +266,32 @@ class MainActivityL : AppCompatActivity() {
             gameSocket =
                 GameSocket(
                     gameId,
-                    deviceToken
+                    deviceToken,
+                    onConnectionChange = { connected ->
+
+                        runOnUiThread {
+
+                            if (
+                                gameFinished ||
+                                surrenderedByUser
+                            ) {
+
+                                return@runOnUiThread
+                            }
+
+                            if (!connected) {
+
+                                tvStatus.text =
+                                    "Reconnecting..."
+
+                            } else {
+
+                                tvStatus.text =
+                                    "Connected"
+
+                            }
+                        }
+                    }
                 ) { rootJson ->
 
                     runOnUiThread {
@@ -304,13 +341,26 @@ class MainActivityL : AppCompatActivity() {
                                 )
 
                             // =================================================
-                            // GAME COMPLETED
+                            // GAME COMPLETED / CANCELLED
                             // =================================================
 
                             if (
                                 gameStatus == "COMPLETED"
-
+                                || gameStatus == "CANCELLED"
                             ) {
+
+                                gameFinished = true
+
+                                // ---------------------------------
+                                // If the user manually surrendered,
+                                // we already showed the lose screen.
+                                // Don't override it.
+                                // ---------------------------------
+
+                                if (surrenderedByUser) {
+
+                                    return@runOnUiThread
+                                }
 
                                 val winnerToken =
                                     gameState.optString(
@@ -333,7 +383,8 @@ class MainActivityL : AppCompatActivity() {
 
                                 Log.d(
                                     "LUDO_RESULT",
-                                    "Game completed. " +
+                                    "Game ended. " +
+                                            "Status=$gameStatus " +
                                             "Winner=$winnerToken " +
                                             "Me=$myToken " +
                                             "DidWin=$didWin " +
@@ -405,27 +456,6 @@ class MainActivityL : AppCompatActivity() {
         }
 
         // =====================================================
-        // TEST BLUE FINISH
-        // =====================================================
-
-        btnTestFinishBlue.setOnClickListener {
-
-            Log.d(
-                "LUDO_TEST",
-                "TEST FINISH BLUE pressed"
-            )
-
-            Toast.makeText(
-                this,
-                "Finishing BLUE for test...",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            gameSocket?.testFinishBlue()
-
-        }
-
-        // =====================================================
         // DICE CLICK
         // =====================================================
 
@@ -441,7 +471,9 @@ class MainActivityL : AppCompatActivity() {
 
             if (
                 isAnimating ||
-                clientHasRolledLock
+                clientHasRolledLock ||
+                gameFinished ||
+                surrenderedByUser
             ) {
                 return@setOnClickListener
             }
@@ -452,10 +484,6 @@ class MainActivityL : AppCompatActivity() {
                 "Rolling..."
 
             lifecycleScope.launch {
-
-                // =============================================
-                // DICE ANIMATION
-                // =============================================
 
                 for (i in 1..5) {
 
@@ -472,20 +500,12 @@ class MainActivityL : AppCompatActivity() {
 
                 }
 
-                // =============================================
-                // SEND ROLL
-                // =============================================
-
                 Log.d(
                     "LUDO_UI",
                     "Sending roll_dice"
                 )
 
                 gameSocket?.rollDice()
-
-                // =============================================
-                // SAFETY TIMEOUT
-                // =============================================
 
                 delay(1500)
 
@@ -525,7 +545,9 @@ class MainActivityL : AppCompatActivity() {
 
                 if (
                     !isAnimating &&
-                    clientHasRolledLock
+                    clientHasRolledLock &&
+                    !gameFinished &&
+                    !surrenderedByUser
                 ) {
 
                     gameSocket?.moveToken(
@@ -671,10 +693,6 @@ class MainActivityL : AppCompatActivity() {
         val myToken =
             sessionManager.getOrCreateUserToken()
 
-        // =====================================================
-        // FIND MY COLOR
-        // =====================================================
-
         myColor = null
 
         val assignmentKeys =
@@ -717,10 +735,6 @@ class MainActivityL : AppCompatActivity() {
 
         }
 
-        // =====================================================
-        // DEFAULT NAMES
-        // =====================================================
-
         txtNameBlue.text =
             "Blue"
 
@@ -732,10 +746,6 @@ class MainActivityL : AppCompatActivity() {
 
         txtNameYellow.text =
             "Yellow"
-
-        // =====================================================
-        // ASSIGN REAL PLAYER NAMES FROM SERVER
-        // =====================================================
 
         val keys =
             assignments.keys()
@@ -876,10 +886,6 @@ class MainActivityL : AppCompatActivity() {
                 false
             )
 
-        // =====================================================
-        // SERVER TURN
-        // =====================================================
-
         val turnOrder =
             gameState.optJSONArray(
                 "player_turn_order"
@@ -909,10 +915,6 @@ class MainActivityL : AppCompatActivity() {
 
         }
 
-        // =====================================================
-        // SHOW HUMAN-FRIENDLY STATUS
-        // =====================================================
-
         val friendlyStatus =
             createFriendlyStatus(
                 gameState,
@@ -922,17 +924,9 @@ class MainActivityL : AppCompatActivity() {
         tvStatus.text =
             friendlyStatus
 
-        // =====================================================
-        // HIGHLIGHT TURN PROFILE
-        // =====================================================
-
         highlightCurrentTurn(
             currentTurnColor
         )
-
-        // =====================================================
-        // DICE
-        // =====================================================
 
         val diceDrawables =
             listOf(
@@ -953,10 +947,6 @@ class MainActivityL : AppCompatActivity() {
 
         imgDice.rotation =
             0f
-
-        // =====================================================
-        // BOARD
-        // =====================================================
 
         val tokensArray =
             gameState.optJSONArray(
@@ -1144,6 +1134,115 @@ class MainActivityL : AppCompatActivity() {
             }
 
         }
+
+    }
+
+    // =========================================================
+    // SURRENDER SCREEN
+    //
+    // Shown when the user presses back mid-game.
+    // Stays visible until the user taps "Continue".
+    // =========================================================
+
+    private fun showSurrenderScreen() {
+
+        setContent {
+
+            MaterialTheme {
+
+                WinnerScreen(
+
+                    didWin = false,
+
+                    payout = 0,
+
+                    onContinue = {
+
+                        // ---------------------------------
+                        // User explicitly closed the
+                        // lose screen — now exit.
+                        // ---------------------------------
+
+                        finish()
+
+                    }
+
+                )
+
+            }
+
+        }
+
+    }
+
+    // =========================================================
+    // BACK BUTTON — SURRENDER WITH LOSE SCREEN
+    //
+    // Flow:
+    //   1. WebSocket sends "surrender"
+    //   2. Lose screen shown
+    //   3. Screen stays visible until user taps Continue
+    // =========================================================
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+
+        // ---------------------------------------------
+        // Already surrendered once — just close
+        // ---------------------------------------------
+
+        if (surrenderedByUser) {
+
+            super.onBackPressed()
+
+            return
+        }
+
+        val socket = gameSocket
+
+        // ---------------------------------------------
+        // No socket, or game already finished
+        // ---------------------------------------------
+
+        if (socket == null || gameFinished) {
+
+            super.onBackPressed()
+
+            return
+        }
+
+        Log.d(
+            "LUDO_BACK",
+            "Back pressed. Sending surrender."
+        )
+
+        // ---------------------------------------------
+        // Mark flags
+        // ---------------------------------------------
+
+        surrenderedByUser = true
+
+        // ---------------------------------------------
+        // Tell server we're forfeiting
+        // ---------------------------------------------
+
+        socket.surrender()
+
+        // ---------------------------------------------
+        // Prevent auto-reconnect from firing
+        // during the shutdown sequence
+        // ---------------------------------------------
+
+        socket.stopReconnect()
+
+        // ---------------------------------------------
+        // Show lose screen
+        //
+        // Stays visible until user taps Continue.
+        // No auto-close timer.
+        // ---------------------------------------------
+
+        showSurrenderScreen()
 
     }
 

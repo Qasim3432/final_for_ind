@@ -35,7 +35,6 @@ fun AuthScreenRouter(
     var currentStep by remember { mutableStateOf<AuthStep>(AuthStep.InputProfile) }
     var savedNickname by remember { mutableStateOf("") }
     var savedEmail by remember { mutableStateOf("") }
-    var generatedCode by remember { mutableStateOf("") }
 
     BackHandler(enabled = currentStep is AuthStep.Loading) { }
 
@@ -45,18 +44,43 @@ fun AuthScreenRouter(
         }
     }
 
+    // ==========================================================
+    // SEND OTP
+    //
+    // Server generates the code, we only send the email.
+    // ==========================================================
+
     fun sendCode(email: String) {
         currentStep = AuthStep.Loading
         scope.launch {
-            generatedCode = (100000..999999).random().toString()
-            Log.d("OTP", "Code $generatedCode for $email")
-            val sent = GameApi.sendOtpEmail(email, generatedCode)
+
+            Log.d(
+                "OTP",
+                "Requesting OTP for $email"
+            )
+
+            val sent = GameApi.sendOtpEmail(email)
+
             if (sent) {
-                Toast.makeText(context, "Code bhej diya $email pe", Toast.LENGTH_LONG).show()
+
+                Toast.makeText(
+                    context,
+                    "Code bhej diya $email pe",
+                    Toast.LENGTH_LONG
+                ).show()
+
                 currentStep = AuthStep.VerifyCode(email)
+
             } else {
-                Toast.makeText(context, "Code bhejne me error, net check karo", Toast.LENGTH_LONG).show()
+
+                Toast.makeText(
+                    context,
+                    "Code bhejne me error, net check karo",
+                    Toast.LENGTH_LONG
+                ).show()
+
                 currentStep = AuthStep.InputProfile
+
             }
         }
     }
@@ -78,20 +102,59 @@ fun AuthScreenRouter(
                 LoginVari(
                     phoneNumber = step.email,
                     onVerify = { enteredCode ->
-                        if (enteredCode.trim() == generatedCode) {
-                            currentStep = AuthStep.Loading
-                            scope.launch {
-                                val ok = sessionManager.verifyEmailWithBackend(savedEmail, savedNickname)
-                                if (ok) {
-                                    Toast.makeText(context, "Welcome $savedNickname", Toast.LENGTH_SHORT).show()
-                                    currentStep = AuthStep.AuthSuccess
-                                } else {
-                                    Toast.makeText(context, "Ye email kisi aur device par hai", Toast.LENGTH_LONG).show()
-                                    currentStep = AuthStep.InputProfile
-                                }
+
+                        val typedCode =
+                            enteredCode.trim()
+
+                        if (typedCode.isEmpty()) {
+
+                            Toast.makeText(
+                                context,
+                                "Code likho",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            return@LoginVari
+                        }
+
+                        currentStep = AuthStep.Loading
+
+                        scope.launch {
+
+                            // ==========================================
+                            // VERIFY ON SERVER
+                            //
+                            // Server checks the code we stored in cache
+                            // against the code user typed here.
+                            // ==========================================
+
+                            val ok = sessionManager.verifyEmailWithBackend(
+                                savedEmail,
+                                savedNickname,
+                                typedCode
+                            )
+
+                            if (ok) {
+
+                                Toast.makeText(
+                                    context,
+                                    "Welcome $savedNickname",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+
+                                currentStep = AuthStep.AuthSuccess
+
+                            } else {
+
+                                Toast.makeText(
+                                    context,
+                                    "Ghalat code ya email kisi aur device par hai",
+                                    Toast.LENGTH_LONG
+                                ).show()
+
+                                currentStep = AuthStep.InputProfile
+
                             }
-                        } else {
-                            Toast.makeText(context, "Ghalat code", Toast.LENGTH_SHORT).show()
                         }
                     }
                 )

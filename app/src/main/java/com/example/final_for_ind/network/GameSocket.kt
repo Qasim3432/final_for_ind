@@ -1,24 +1,60 @@
 package com.example.final_for_ind.network
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+
 import org.json.JSONObject
+
+import java.util.concurrent.TimeUnit
+
 
 class GameSocket(
     private val gameId: String,
     private val playerToken: String,
+    private val onConnectionChange: ((Boolean) -> Unit)? = null,
     private val onMessage: (JSONObject) -> Unit
 ) {
 
-    private val client = OkHttpClient()
+    private val client =
+        OkHttpClient.Builder()
+            .pingInterval(
+                20,
+                TimeUnit.SECONDS
+            )
+            .build()
 
     private var socket: WebSocket? = null
 
     private var isConnected = false
+
+    // ---------------------------------------------
+    // RECONNECT STATE
+    // ---------------------------------------------
+
+    private var manuallyClosed = false
+
+    private var reconnectAttempts = 0
+
+    private val maxReconnectAttempts = 5
+
+    private val mainHandler =
+        Handler(Looper.getMainLooper())
+
+    private val reconnectRunnable =
+        Runnable {
+
+            if (!manuallyClosed) {
+
+                connect()
+            }
+        }
 
 
     // =========================================================
@@ -27,9 +63,16 @@ class GameSocket(
 
     fun connect() {
 
+        if (manuallyClosed) {
+
+            return
+        }
+
         Log.d(
             "GAME_SOCKET",
-            "Connecting WebSocket. Game=$gameId Token=$playerToken"
+            "Connecting WebSocket. " +
+                    "Game=$gameId " +
+                    "Token=$playerToken"
         )
 
         val url =
@@ -58,11 +101,16 @@ class GameSocket(
 
                         isConnected = true
 
+                        reconnectAttempts = 0
+
                         Log.d(
                             "GAME_SOCKET",
                             "WebSocket CONNECTED. " +
-                                    "Game=$gameId Token=$playerToken"
+                                    "Game=$gameId " +
+                                    "Token=$playerToken"
                         )
+
+                        onConnectionChange?.invoke(true)
                     }
 
 
@@ -81,8 +129,6 @@ class GameSocket(
                             val rootJson =
                                 JSONObject(text)
 
-                            // IMPORTANT:
-                            // Use the callback supplied by MainActivity.
                             onMessage(rootJson)
 
                         } catch (e: Exception) {
@@ -132,6 +178,10 @@ class GameSocket(
                         )
 
                         socket = null
+
+                        onConnectionChange?.invoke(false)
+
+                        scheduleReconnect()
                     }
 
 
@@ -154,9 +204,58 @@ class GameSocket(
                         )
 
                         socket = null
+
+                        onConnectionChange?.invoke(false)
+
+                        scheduleReconnect()
                     }
                 }
             )
+    }
+
+
+    // =========================================================
+    // RECONNECT WITH BACKOFF
+    // =========================================================
+
+    private fun scheduleReconnect() {
+
+        if (manuallyClosed) {
+
+            return
+        }
+
+        if (reconnectAttempts >= maxReconnectAttempts) {
+
+            Log.w(
+                "GAME_SOCKET",
+                "Max reconnect attempts reached " +
+                        "for Game=$gameId"
+            )
+
+            return
+        }
+
+        reconnectAttempts++
+
+        val delayMs =
+            (
+                    1000L
+                            * (1L shl (reconnectAttempts - 1))
+                    ).coerceAtMost(16000L)
+
+        Log.d(
+            "GAME_SOCKET",
+            "Scheduling reconnect in " +
+                    "${delayMs}ms " +
+                    "(attempt $reconnectAttempts/" +
+                    "$maxReconnectAttempts)"
+        )
+
+        mainHandler.postDelayed(
+            reconnectRunnable,
+            delayMs
+        )
     }
 
 
@@ -168,6 +267,7 @@ class GameSocket(
 
         val payload =
             JSONObject().apply {
+
                 put(
                     "action",
                     "roll_dice"
@@ -225,23 +325,23 @@ class GameSocket(
 
 
     // =========================================================
-    // TEST FINISH BLUE
+    // SURRENDER
     // =========================================================
 
-    fun testFinishBlue() {
+    fun surrender() {
 
         val payload =
             JSONObject().apply {
 
                 put(
                     "action",
-                    "test_finish_blue"
+                    "surrender"
                 )
             }
 
         Log.d(
             "GAME_SOCKET",
-            "Sending test_finish_blue: $payload"
+            "Sending surrender: $payload"
         )
 
         socket?.send(
@@ -251,10 +351,34 @@ class GameSocket(
 
 
     // =========================================================
+    // STOP RECONNECT
+    //
+    // Call this before disconnect when the user explicitly
+    // quits (back button, surrender). Prevents auto-reconnect
+    // from kicking in during the shutdown sequence.
+    // =========================================================
+
+    fun stopReconnect() {
+
+        manuallyClosed = true
+
+        mainHandler.removeCallbacks(
+            reconnectRunnable
+        )
+    }
+
+
+    // =========================================================
     // DISCONNECT
     // =========================================================
 
     fun disconnect() {
+
+        manuallyClosed = true
+
+        mainHandler.removeCallbacks(
+            reconnectRunnable
+        )
 
         Log.d(
             "GAME_SOCKET",

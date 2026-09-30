@@ -107,7 +107,8 @@ fun HomeScreen(
     onSettingsClick: () -> Unit = {},
     onNavigateToWallet: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateToGift: () -> Unit
+    onNavigateToGift: () -> Unit,
+    onNavigateToFriends: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -251,9 +252,7 @@ fun HomeScreen(
                     }, subtitle = "Play with other three\nplayers", dotColor = Color(0xFFFFC107))
 
                     GameModeCard("Play with Friends", Orange, {
-                        chosenModeLabel = "FRIENDS MATCH"
-                        isTwoPlayerModeSelected = true
-                        showSetupDialog = true
+                        onNavigateToFriends()
                     }, subtitle = "Invite your friends to", dotColor = Color(0xFFFF4444))
 
                     GameModeCard("Computer", Purple40, {

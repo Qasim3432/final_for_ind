@@ -28,6 +28,8 @@ import com.example.final_for_ind.screens.home_lobby.HomeScreen
 import com.example.final_for_ind.screens.login_frame.First_Screen
 import com.example.final_for_ind.screens.login_frame.auth.AuthScreenRouter
 import com.example.final_for_ind.screens.profile.ProfileScreen
+import com.example.final_for_ind.screens.referral.PrivateRoomHostScreen
+import com.example.final_for_ind.screens.start.SettingScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -64,7 +66,6 @@ fun AppNavigation(
     val navController = rememberNavController()
     val composeScope = rememberCoroutineScope()
 
-    // Agar pehle se login hai to seedha home, warna first screen
     val startRoute = remember {
         if (sessionManager.isEmailLoggedIn()) "home" else "first_screen_route"
     }
@@ -77,7 +78,6 @@ fun AppNavigation(
         composable("first_screen_route") {
             First_Screen(
                 onPlayClick = {
-                    // Pehle auth check karo
                     if (sessionManager.isEmailLoggedIn()) {
                         navController.navigate("home") {
                             popUpTo("first_screen_route") { inclusive = true }
@@ -136,8 +136,72 @@ fun AppNavigation(
                         restoreState = true
                     }
                 },
-                onProfileClick = { navController.navigate("profile") },
-                onSettingsClick = { /* settings */ }
+                onNavigateToFriends = {
+                    navController.navigate("friends_room") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                    }
+                },
+                onProfileClick = {
+                    navController.navigate("profile") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onSettingsClick = {
+                    navController.navigate("settings") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        }
+
+        // Route: Settings
+        composable("settings") {
+            SettingScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToProfile = {
+                    navController.navigate("profile") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToInvite = {
+                    // Referral code wallet screen mein dikhta hai
+                    navController.navigate("wallet") {
+                        popUpTo("home") { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onLogout = {
+                    // Clear session
+                    sessionManager.clearEmailAuth()
+
+                    // Navigate to first screen
+                    navController.navigate("first_screen_route") {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        // Route: Friends Room (Create / Join)
+        composable("friends_room") {
+            PrivateRoomHostScreen(
+                onBack = { navController.popBackStack() },
+                onGameStart = { _, _ ->
+                    // PrivateRoomHostScreen khud Intent se MainActivityL start karega
+                    // Isliye yahan kuch nahi karna
+                },
+                onCopyLink = { /* toast optional */ }
             )
         }
 
@@ -229,7 +293,7 @@ fun AppNavigation(
             )
         }
 
-        // Route 6: Deposit Form Action Trigger Panel
+        // Route 6: Deposit Form
         composable("deposit") {
             DepositScreen(
                 sessionManager = sessionManager,
@@ -241,7 +305,7 @@ fun AppNavigation(
             )
         }
 
-        // Route 7: Withdrawal Request Form Processing Panel
+        // Route 7: Withdrawal Form
         composable("withdraw") {
             var balanceAmount by remember { mutableStateOf(0) }
             LaunchedEffect(Unit) {
