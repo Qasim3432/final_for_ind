@@ -9,9 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Edit
@@ -28,10 +30,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.final_for_ind.network.GameSessionManager
+import com.example.final_for_ind.network.TransactionLog
 import com.example.final_for_ind.screens.component.BottomNavBar
 import kotlinx.coroutines.launch
 import java.io.File
@@ -58,7 +62,9 @@ fun ProfileScreen(
     onNavItemClick: (Int) -> Unit = {},
     sessionManager: GameSessionManager,
     onBack: () -> Unit = {},
-    onBetHistory: () -> Unit = {},
+    onLeaderboard: () -> Unit = {},
+    onGameHistory: () -> Unit = {},
+    onReferralDashboard: () -> Unit = {},
     onTransactionHistory: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
@@ -72,6 +78,12 @@ fun ProfileScreen(
     var isUploading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
+
+    // ✅ NEW: Transaction popup state
+    var showTransactionDialog by remember { mutableStateOf(false) }
+    var transactionsList by remember { mutableStateOf<List<TransactionLog>>(emptyList()) }
+    var isLoadingTxns by remember { mutableStateOf(false) }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -139,7 +151,14 @@ fun ProfileScreen(
             },
             containerColor = Color.Transparent
         ) { paddingValues ->
-            Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Spacer(Modifier.height(24.dp))
                 Box(modifier = Modifier.size(130.dp), contentAlignment = Alignment.Center) {
                     Box(Modifier.size(130.dp).blur(20.dp).background(Color(0xFFFFD700).copy(alpha = 0.3f), CircleShape))
@@ -183,12 +202,54 @@ fun ProfileScreen(
                     }
                 }
                 Spacer(Modifier.height(28.dp))
-                RoyalMenuItem(icon = "🏆", title = "Bet History", onClick = onBetHistory)
+
+                RoyalMenuItem(
+                    icon = "🏅",
+                    title = "Leaderboard",
+                    subtitle = "Top players ranking",
+                    onClick = onLeaderboard
+                )
                 Spacer(Modifier.height(12.dp))
-                RoyalMenuItem(icon = "🔄", title = "Transaction History", subtitle = "View deposits & withdrawals", onClick = onTransactionHistory)
+
+                RoyalMenuItem(icon = "🏆", title = "Game History", onClick = onGameHistory)
                 Spacer(Modifier.height(12.dp))
+
+                RoyalMenuItem(
+                    icon = "👥",
+                    title = "Referral Dashboard",
+                    subtitle = "Invite friends & earn",
+                    onClick = onReferralDashboard
+                )
+                Spacer(Modifier.height(12.dp))
+
+                // ✅ FIXED: Transaction History opens popup
+                RoyalMenuItem(
+                    icon = "🔄",
+                    title = "Transaction History",
+                    subtitle = "View deposits & withdrawals",
+                    onClick = {
+                        onTransactionHistory()
+                        showTransactionDialog = true
+                        if (transactionsList.isEmpty()) {
+                            isLoadingTxns = true
+                            scope.launch {
+                                try {
+                                    val token = sessionManager.getOrCreateUserToken()
+                                    transactionsList = sessionManager.fetchTransactionHistory(token)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                } finally {
+                                    isLoadingTxns = false
+                                }
+                            }
+                        }
+                    }
+                )
+                Spacer(Modifier.height(12.dp))
+
                 RoyalMenuItem(icon = "⏻", title = "Logout", onClick = { onLogout() }, isLogout = true)
-                Spacer(Modifier.weight(1f))
+
+                Spacer(Modifier.height(40.dp))
             }
         }
     }
@@ -218,7 +279,185 @@ fun ProfileScreen(
             }
         )
     }
+
+    // ✅ NEW: Transaction history popup
+    if (showTransactionDialog) {
+        TransactionHistoryPopup(
+            transactions = transactionsList,
+            isLoading = isLoadingTxns,
+            onDismiss = { showTransactionDialog = false }
+        )
+    }
 }
+
+// ==========================================================
+// TRANSACTION HISTORY POPUP
+// ==========================================================
+
+@Composable
+fun TransactionHistoryPopup(
+    transactions: List<TransactionLog>,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    val gold = Color(0xFFD4AF37)
+    val redDark = Color(0xFF2B0000)
+    val redBright = Color(0xFFD32F2F)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A0000),
+        shape = RoundedCornerShape(22.dp),
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("🔄", fontSize = 22.sp)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Recent Transactions Ledger",
+                    color = gold,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp
+                )
+            }
+        },
+        text = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 150.dp, max = 420.dp)
+            ) {
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = gold)
+                        }
+                    }
+                    transactions.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No recorded transactions found.",
+                                color = Color.Gray,
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    else -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            transactions.forEach { log ->
+                                ProfileTransactionRow(
+                                    log = log,
+                                    gold = gold,
+                                    redBright = redBright,
+                                    redDark = redDark
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = gold),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "Close",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    )
+}
+
+@Composable
+fun ProfileTransactionRow(
+    log: TransactionLog,
+    gold: Color,
+    redBright: Color,
+    redDark: Color
+) {
+    val isDeposit = log.type == "DEPOSIT"
+    val statusColor = when (log.status) {
+        "APPROVED" -> Color(0xFF2ECC71)
+        "REJECTED" -> Color(0xFFE74C3C)
+        else -> Color(0xFFF1C40F)
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Black.copy(alpha = 0.35f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                gold.copy(alpha = 0.25f),
+                RoundedCornerShape(12.dp)
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isDeposit) "Deposit Request" else "Withdrawal Request",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = log.dateString,
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${if (isDeposit) "+" else "-"}${log.amount}",
+                    color = if (isDeposit) Color(0xFF2ECC71) else Color(0xFFE74C3C),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = log.status,
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+// ==========================================================
+// EDIT PROFILE DIALOG
+// ==========================================================
 
 @Composable
 fun EditProfileDialog(currentName: String, currentEmail: String, onDismiss: () -> Unit, onSave: (String, String) -> Unit){

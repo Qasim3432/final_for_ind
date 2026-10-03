@@ -56,7 +56,7 @@ class GameSessionManager(
             .toMediaType()
 
     private val baseUrl =
-        "http://192.168.18.48:8090/"
+        "http://192.168.18.55:8090/"
 
 
     // =========================================================
@@ -72,7 +72,6 @@ class GameSessionManager(
             )
 
         if (existingToken != null) {
-
             return existingToken
         }
 
@@ -239,7 +238,6 @@ class GameSessionManager(
                     )
 
                     if (!response.isSuccessful) {
-
                         return@withContext false
                     }
 
@@ -348,7 +346,6 @@ class GameSessionManager(
                     )
 
                     if (!response.isSuccessful) {
-
                         return@withContext false
                     }
 
@@ -378,7 +375,6 @@ class GameSessionManager(
                         )
 
                     if (authToken.isNullOrBlank()) {
-
                         return@withContext false
                     }
 
@@ -419,6 +415,85 @@ class GameSessionManager(
             )
 
             return@withContext false
+        }
+    }
+
+
+    // =========================================================
+    // LOGOUT USER
+    // =========================================================
+
+    suspend fun logoutUser(): Boolean = withContext(Dispatchers.IO) {
+
+        val deviceId =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_id",
+                deviceId
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "LOGOUT",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        Log.d(
+            "LOGOUT",
+            "Requesting logout for device=$deviceId"
+        )
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/auth/logout/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "LOGOUT",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    response.isSuccessful
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "LOGOUT",
+                "Network error",
+                e
+            )
+
+            false
         }
     }
 
@@ -655,11 +730,6 @@ class GameSessionManager(
                         "Create room HTTP ${response.code}: $body"
                     )
 
-                    // =========================================
-                    // ALWAYS parse the body, even on 4xx errors.
-                    // Server returns { status, message }.
-                    // =========================================
-
                     val parsed =
                         try {
 
@@ -671,7 +741,6 @@ class GameSessionManager(
                         }
 
                     if (parsed != null) {
-
                         return@withContext parsed
                     }
 
@@ -799,10 +868,6 @@ class GameSessionManager(
                         "Join room HTTP ${response.code}: $body"
                     )
 
-                    // =========================================
-                    // ALWAYS parse the body, even on 4xx errors.
-                    // =========================================
-
                     val parsed =
                         try {
 
@@ -814,7 +879,6 @@ class GameSessionManager(
                         }
 
                     if (parsed != null) {
-
                         return@withContext parsed
                     }
 
@@ -969,7 +1033,6 @@ class GameSessionManager(
                             ?: ""
 
                     if (!response.isSuccessful) {
-
                         return@withContext null
                     }
 
@@ -1077,7 +1140,6 @@ class GameSessionManager(
                     .use { response ->
 
                         if (!response.isSuccessful) {
-
                             return@withContext resultMap
                         }
 
@@ -1237,7 +1299,6 @@ class GameSessionManager(
                 .use { response ->
 
                     if (!response.isSuccessful) {
-
                         return@withContext historyList
                     }
 
@@ -1295,7 +1356,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL NOTIFICATION
+    // WITHDRAWAL NOTIFICATION (legacy)
     // =========================================================
 
     suspend fun submitWithdrawalNotification(
@@ -1574,7 +1635,6 @@ class GameSessionManager(
                 .use { response ->
 
                     if (!response.isSuccessful) {
-
                         return@withContext "ERROR"
                     }
 
@@ -1593,6 +1653,53 @@ class GameSessionManager(
         } catch (e: Exception) {
 
             "ERROR"
+        }
+    }
+
+
+    // =========================================================
+    // REFERRAL DASHBOARD
+    // =========================================================
+
+    suspend fun fetchReferralDashboard(
+        deviceToken: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/referral-dashboard/" +
+                            "$deviceToken/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "REFERRAL",
+                        "Dashboard HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e("REFERRAL", "Fetch failed", e)
+            null
         }
     }
 
@@ -1652,7 +1759,6 @@ class GameSessionManager(
                 .use { response ->
 
                     if (!response.isSuccessful) {
-
                         return@withContext false
                     }
 
@@ -1742,7 +1848,6 @@ class GameSessionManager(
                     )
 
                     if (!response.isSuccessful) {
-
                         return@withContext false
                     }
 
@@ -1943,7 +2048,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // APP CONFIG (support contacts, terms, version, etc.)
+    // APP CONFIG
     // =========================================================
 
     suspend fun fetchAppConfig():
@@ -1971,7 +2076,6 @@ class GameSessionManager(
                     )
 
                     if (!response.isSuccessful) {
-
                         return@withContext null
                     }
 
@@ -2067,6 +2171,820 @@ class GameSessionManager(
             )
 
             return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL PIN — STATUS
+    // =========================================================
+
+    suspend fun getPinStatus():
+            JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Failed to build status payload",
+                e
+            )
+
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/pin/status/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "PIN",
+                        "Status HTTP ${response.code}: $responseBody"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(
+                        responseBody
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Status network error",
+                e
+            )
+
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL PIN — SET
+    // =========================================================
+
+    suspend fun setWithdrawalPin(
+        pin: String,
+        confirmPin: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "pin",
+                pin
+            )
+
+            jsonBody.put(
+                "confirm_pin",
+                confirmPin
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Failed to build set payload",
+                e
+            )
+
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/pin/set/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "PIN",
+                        "Set HTTP ${response.code}: $responseBody"
+                    )
+
+                    return@withContext JSONObject(
+                        responseBody
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Set network error",
+                e
+            )
+
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL PIN — CHANGE
+    // =========================================================
+
+    suspend fun changeWithdrawalPin(
+        oldPin: String,
+        newPin: String,
+        confirmPin: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "old_pin",
+                oldPin
+            )
+
+            jsonBody.put(
+                "new_pin",
+                newPin
+            )
+
+            jsonBody.put(
+                "confirm_pin",
+                confirmPin
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Failed to build change payload",
+                e
+            )
+
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/pin/change/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "PIN",
+                        "Change HTTP ${response.code}: $responseBody"
+                    )
+
+                    return@withContext JSONObject(
+                        responseBody
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Change network error",
+                e
+            )
+
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL PIN — RESET STEP 1
+    // =========================================================
+
+    suspend fun requestPinReset():
+            JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Failed to build reset request",
+                e
+            )
+
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/pin/reset-request/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "PIN",
+                        "Reset request HTTP ${response.code}: $responseBody"
+                    )
+
+                    return@withContext JSONObject(
+                        responseBody
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Reset request error",
+                e
+            )
+
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL PIN — RESET STEP 2
+    // =========================================================
+
+    suspend fun verifyPinReset(
+        otpCode: String,
+        newPin: String,
+        confirmPin: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "otp_code",
+                otpCode
+            )
+
+            jsonBody.put(
+                "new_pin",
+                newPin
+            )
+
+            jsonBody.put(
+                "confirm_pin",
+                confirmPin
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Failed to build reset verify",
+                e
+            )
+
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/pin/reset-verify/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "PIN",
+                        "Reset verify HTTP ${response.code}: $responseBody"
+                    )
+
+                    return@withContext JSONObject(
+                        responseBody
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "PIN",
+                "Reset verify error",
+                e
+            )
+
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // WITHDRAWAL SUBMIT WITH PIN
+    // =========================================================
+
+    suspend fun submitWithdrawalWithPin(
+        amount: Int,
+        method: String,
+        title: String,
+        number: String,
+        pin: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                userToken
+            )
+
+            jsonBody.put(
+                "amount",
+                amount
+            )
+
+            jsonBody.put(
+                "method",
+                method
+            )
+
+            jsonBody.put(
+                "account_title",
+                title
+            )
+
+            jsonBody.put(
+                "account_number",
+                number
+            )
+
+            jsonBody.put(
+                "pin",
+                pin
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "WITHDRAW",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/withdraw/submit/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val responseBody =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "WITHDRAW",
+                        "HTTP ${response.code}: $responseBody"
+                    )
+
+                    return@withContext JSONObject(
+                        responseBody
+                    )
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "WITHDRAW",
+                "Network error",
+                e
+            )
+
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // GAME HISTORY
+    // =========================================================
+
+    suspend fun fetchGameHistory(
+        deviceToken: String,
+        limit: Int = 50
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/game-history/" +
+                            "$deviceToken/?limit=$limit"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "GAME_HISTORY",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "GAME_HISTORY",
+                "Fetch failed",
+                e
+            )
+
+            null
+        }
+    }
+
+
+    // =========================================================
+    // LEADERBOARD
+    // =========================================================
+
+    suspend fun fetchLeaderboard(
+        period: String = "alltime",
+        limit: Int = 50
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken =
+            getOrCreateUserToken()
+
+        val url =
+            "${baseUrl}api/leaderboard/" +
+                    "?period=$period" +
+                    "&limit=$limit" +
+                    "&device_token=$userToken"
+
+        val request =
+            Request.Builder()
+                .url(url)
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "LEADERBOARD",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "LEADERBOARD",
+                "Fetch failed",
+                e
+            )
+
+            null
+        }
+    }
+
+
+    // =========================================================
+    // DAILY BONUS — STATUS
+    // =========================================================
+
+    suspend fun fetchDailyBonusStatus(
+        deviceToken: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/daily-bonus/status/" +
+                            "$deviceToken/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "DAILY_BONUS",
+                        "Status HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e("DAILY_BONUS", "Status failed", e)
+            null
+        }
+    }
+
+
+    // =========================================================
+    // DAILY BONUS — CLAIM
+    // =========================================================
+
+    suspend fun claimDailyBonus(): JSONObject? =
+        withContext(Dispatchers.IO) {
+
+            val userToken =
+                getOrCreateUserToken()
+
+            val jsonBody =
+                JSONObject()
+
+            try {
+
+                jsonBody.put(
+                    "device_token",
+                    userToken
+                )
+
+            } catch (e: Exception) {
+
+                Log.e("DAILY_BONUS", "Build failed", e)
+                return@withContext null
+            }
+
+            val request =
+                Request.Builder()
+                    .url(
+                        "${baseUrl}api/user/daily-bonus/claim/"
+                    )
+                    .post(
+                        jsonBody.toString()
+                            .toRequestBody(jsonMediaType)
+                    )
+                    .build()
+
+            try {
+
+                client.newCall(request)
+                    .execute()
+                    .use { response ->
+
+                        val body =
+                            response.body?.string()
+                                ?: ""
+
+                        Log.d(
+                            "DAILY_BONUS",
+                            "Claim HTTP ${response.code}: $body"
+                        )
+
+                        return@withContext JSONObject(body)
+                    }
+
+            } catch (e: Exception) {
+
+                Log.e("DAILY_BONUS", "Claim failed", e)
+                null
+            }
+        }
+
+
+    // =========================================================
+    // SPIN HISTORY
+    // =========================================================
+
+    suspend fun fetchSpinHistory(
+        deviceToken: String,
+        limit: Int = 20
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/spin-history/" +
+                            "$deviceToken/?limit=$limit"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "SPIN_HISTORY",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e("SPIN_HISTORY", "Fetch failed", e)
+            null
         }
     }
 }

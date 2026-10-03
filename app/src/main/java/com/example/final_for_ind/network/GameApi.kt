@@ -11,7 +11,7 @@ import org.json.JSONObject
 object GameApi {
 
     private const val BASE_URL =
-        "http://192.168.18.48:8090/"
+        "http://192.168.18.55:8090/"
 
     private val client =
         OkHttpClient()

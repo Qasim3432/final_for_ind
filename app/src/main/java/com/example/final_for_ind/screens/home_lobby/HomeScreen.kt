@@ -34,6 +34,7 @@ import com.example.final_for_ind.network.GameSessionManager
 import com.example.final_for_ind.screens.component.BottomNavBar
 import com.example.final_for_ind.ui.theme.Orange
 import com.example.final_for_ind.ui.theme.Purple40
+import com.example.final_for_ind.utils.SoundManager
 import kotlinx.coroutines.launch
 
 @Composable
@@ -58,7 +59,10 @@ fun GameModeCard(
                 .fillMaxSize()
                 .background(
                     Brush.horizontalGradient(
-                        listOf(Color(0xFF8B1A00), Color(0xFFE67E00), Color(0xFFFFA500))
+                        listOf(
+                            backgroundColor.copy(alpha = 0.85f),
+                            backgroundColor
+                        )
                     )
                 )
                 .padding(horizontal = 16.dp),
@@ -240,26 +244,33 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     GameModeCard("Quick Match", Color(0xFF4CAF50), {
+                        SoundManager.playButtonClick()
                         chosenModeLabel = "2 PLAYERS"
                         isTwoPlayerModeSelected = true
                         showSetupDialog = true
                     }, subtitle = "Play against another\nplayer", dotColor = Color(0xFFFF4444))
 
                     GameModeCard("4 Players", Color(0xFF2196F3), {
+                        SoundManager.playButtonClick()
                         chosenModeLabel = "4 PLAYERS"
                         isTwoPlayerModeSelected = false
                         showSetupDialog = true
                     }, subtitle = "Play with other three\nplayers", dotColor = Color(0xFFFFC107))
 
                     GameModeCard("Play with Friends", Orange, {
+                        SoundManager.playButtonClick()
                         onNavigateToFriends()
                     }, subtitle = "Invite your friends to", dotColor = Color(0xFFFF4444))
 
+                    // ✅ FIXED: Computer mode shows "Coming Soon" toast
                     GameModeCard("Computer", Purple40, {
-                        chosenModeLabel = "COMPUTER"
-                        isTwoPlayerModeSelected = true
-                        showSetupDialog = true
-                    }, subtitle = "Play against AI", dotColor = Color(0xFFFFC107))
+                        SoundManager.playButtonClick()
+                        Toast.makeText(
+                            context,
+                            "Coming Soon!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }, subtitle = "Coming Soon", dotColor = Color(0xFFFFC107))
                 }
             }
 

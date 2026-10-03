@@ -4,14 +4,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.ContentCopy
@@ -62,6 +63,8 @@ fun DashboardScreen(
         colors = listOf(BgDark2, BgDark)
     )
 
+    val scrollState = rememberScrollState()
+
     Scaffold(
         bottomBar = {
             BottomNavBar(
@@ -76,7 +79,8 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .background(gradient)
                 .padding(paddingValues)
-                .padding(top = 16.dp),
+                .verticalScroll(scrollState)
+                .padding(top = 16.dp, bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // --- MAIN WALLET CARD ---
@@ -109,7 +113,7 @@ fun DashboardScreen(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // --- TWO-COLUMN BALANCE PANEL - Red gradient like screenshot ---
+                    // --- TWO-COLUMN BALANCE PANEL ---
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -252,15 +256,14 @@ fun DashboardScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            AnimatedVisibility(
-                visible = showHistorySection,
-                modifier = Modifier.fillMaxWidth(0.94f)
-            ) {
+            // ✅ Transaction box — max height taake scroll ke saath adjust ho jaye
+            if (showHistorySection) {
                 Card(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = CardBg),
                     modifier = Modifier
-                        .fillMaxHeight(0.85f)
+                        .fillMaxWidth(0.94f)
+                        .heightIn(min = 200.dp, max = 400.dp)
                         .border(1.dp, Gold.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -274,7 +277,9 @@ fun DashboardScreen(
 
                         if (historyLogs.isEmpty()) {
                             Box(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(150.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -286,6 +291,7 @@ fun DashboardScreen(
                             }
                         } else {
                             LazyColumn(
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(historyLogs) { log ->
@@ -296,6 +302,8 @@ fun DashboardScreen(
                     }
                 }
             }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.final_for_ind
 
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -19,8 +20,11 @@ import com.example.final_for_ind.network.GameSessionManager
 import com.example.final_for_ind.network.GameSocket
 import com.example.final_for_ind.screens.dice_board.LudoBoardView
 import com.example.final_for_ind.screens.dice_board.WinnerScreen
+import com.example.final_for_ind.utils.SoundManager
 
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 import org.json.JSONObject
@@ -52,6 +56,28 @@ class MainActivityL : AppCompatActivity() {
     private var surrenderedByUser = false
 
     // =========================================================
+    // MATCHMAKING TIMEOUT STATE
+    // =========================================================
+
+    private var matchmakingTimerJob: Job? = null
+
+    private var cancelDialogShown = false
+
+    private var currentLobbyStatus = ""
+
+    private var tvStatusRef: TextView? = null
+
+    // =========================================================
+    // TURN COUNTDOWN STATE
+    // =========================================================
+
+    private var turnCountdownJob: Job? = null
+
+    private var currentTurnDeadline: Double = 0.0
+
+    private var currentTurnColor: String = ""
+
+    // =========================================================
     // PROFILE VIEWS FOR TURN HIGHLIGHT
     // =========================================================
 
@@ -81,6 +107,8 @@ class MainActivityL : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
 
+        SoundManager.init(applicationContext)
+
         setContentView(R.layout.activity_main_l)
 
         // =====================================================
@@ -102,21 +130,15 @@ class MainActivityL : AppCompatActivity() {
                 R.id.tvStatus
             )
 
+        tvStatusRef = tvStatus
+
         val btnTestFinishBlue =
             findViewById<Button>(
                 R.id.btnTestFinishBlue
             )
 
-        // =====================================================
-        // HIDE TEST BUTTON
-        // =====================================================
-
         btnTestFinishBlue.visibility =
             View.GONE
-
-        // =====================================================
-        // PROFILE VIEWS
-        // =====================================================
 
         profileBlue =
             findViewById<View>(
@@ -158,16 +180,8 @@ class MainActivityL : AppCompatActivity() {
                 R.id.txtNameYellow
             )
 
-        // =====================================================
-        // SESSION
-        // =====================================================
-
         sessionManager =
             GameSessionManager(this)
-
-        // =====================================================
-        // GAME MODE
-        // =====================================================
 
         isTwoPlayerMode =
             intent.getBooleanExtra(
@@ -177,10 +191,6 @@ class MainActivityL : AppCompatActivity() {
 
         ludoBoardView.isTwoPlayerMode =
             isTwoPlayerMode
-
-        // =====================================================
-        // PROFILE VISIBILITY
-        // =====================================================
 
         if (isTwoPlayerMode) {
 
@@ -259,10 +269,6 @@ class MainActivityL : AppCompatActivity() {
                         "Token=$deviceToken"
             )
 
-            // =================================================
-            // CONNECT WEBSOCKET
-            // =================================================
-
             gameSocket =
                 GameSocket(
                     gameId,
@@ -275,7 +281,6 @@ class MainActivityL : AppCompatActivity() {
                                 gameFinished ||
                                 surrenderedByUser
                             ) {
-
                                 return@runOnUiThread
                             }
 
@@ -318,10 +323,6 @@ class MainActivityL : AppCompatActivity() {
 
                             isAnimating = false
 
-                            // =================================================
-                            // UPDATE PLAYER NAMES / COLORS
-                            // =================================================
-
                             updatePlayersFromServer(
                                 gameState,
                                 txtNameBlue,
@@ -330,19 +331,35 @@ class MainActivityL : AppCompatActivity() {
                                 txtNameYellow
                             )
 
-                            // =================================================
-                            // GAME STATUS
-                            // =================================================
-
                             val gameStatus =
                                 gameState.optString(
                                     "game_status",
                                     ""
                                 )
 
-                            // =================================================
-                            // GAME COMPLETED / CANCELLED
-                            // =================================================
+                            currentLobbyStatus = gameStatus
+
+                            if (gameStatus == "LOBBY") {
+
+                                startMatchmakingTimer()
+
+                                // Cancel turn countdown while in lobby
+                                turnCountdownJob?.cancel()
+
+                            } else if (
+                                gameStatus == "ACTIVE" &&
+                                matchmakingTimerJob != null
+                            ) {
+
+                                matchmakingTimerJob?.cancel()
+
+                                matchmakingTimerJob = null
+
+                                Log.d(
+                                    "MATCHMAKING",
+                                    "Game started — timer cancelled"
+                                )
+                            }
 
                             if (
                                 gameStatus == "COMPLETED"
@@ -351,11 +368,7 @@ class MainActivityL : AppCompatActivity() {
 
                                 gameFinished = true
 
-                                // ---------------------------------
-                                // If the user manually surrendered,
-                                // we already showed the lose screen.
-                                // Don't override it.
-                                // ---------------------------------
+                                turnCountdownJob?.cancel()
 
                                 if (surrenderedByUser) {
 
@@ -381,16 +394,6 @@ class MainActivityL : AppCompatActivity() {
                                         0
                                     )
 
-                                Log.d(
-                                    "LUDO_RESULT",
-                                    "Game ended. " +
-                                            "Status=$gameStatus " +
-                                            "Winner=$winnerToken " +
-                                            "Me=$myToken " +
-                                            "DidWin=$didWin " +
-                                            "Payout=$payout"
-                                )
-
                                 showWinnerScreen(
                                     didWin = didWin,
                                     payout = payout
@@ -399,10 +402,6 @@ class MainActivityL : AppCompatActivity() {
                                 return@runOnUiThread
 
                             }
-
-                            // =================================================
-                            // NORMAL GAME STATE
-                            // =================================================
 
                             parseAndSyncFullGameState(
                                 gameState,
@@ -430,7 +429,7 @@ class MainActivityL : AppCompatActivity() {
         }
 
         // =====================================================
-        // DICE DRAWABLE
+        // DICE DRAWABLE HELPER
         // =====================================================
 
         fun getDiceDrawableId(
@@ -461,22 +460,17 @@ class MainActivityL : AppCompatActivity() {
 
         imgDice.setOnClickListener {
 
-            Log.d(
-                "LUDO_UI",
-                "Dice clicked. " +
-                        "Animating=$isAnimating " +
-                        "Rolled=$clientHasRolledLock " +
-                        "MyColor=$myColor"
-            )
-
             if (
                 isAnimating ||
                 clientHasRolledLock ||
                 gameFinished ||
-                surrenderedByUser
+                surrenderedByUser ||
+                currentLobbyStatus == "LOBBY"
             ) {
                 return@setOnClickListener
             }
+
+            SoundManager.playDiceRoll()
 
             isAnimating = true
 
@@ -500,21 +494,11 @@ class MainActivityL : AppCompatActivity() {
 
                 }
 
-                Log.d(
-                    "LUDO_UI",
-                    "Sending roll_dice"
-                )
-
                 gameSocket?.rollDice()
 
                 delay(1500)
 
                 if (isAnimating) {
-
-                    Log.w(
-                        "LUDO_UI",
-                        "Server response timeout"
-                    )
 
                     isAnimating = false
 
@@ -534,21 +518,15 @@ class MainActivityL : AppCompatActivity() {
         ludoBoardView.onTokenClickListener =
             { clickedToken ->
 
-                Log.d(
-                    "LUDO_UI",
-                    "Token clicked: " +
-                            "${clickedToken.color.name} " +
-                            "ID=${clickedToken.id} " +
-                            "MyColor=$myColor " +
-                            "HasRolled=$clientHasRolledLock"
-                )
-
                 if (
                     !isAnimating &&
                     clientHasRolledLock &&
                     !gameFinished &&
-                    !surrenderedByUser
+                    !surrenderedByUser &&
+                    currentLobbyStatus != "LOBBY"
                 ) {
+
+                    SoundManager.playTokenMove()
 
                     gameSocket?.moveToken(
                         clickedToken.id,
@@ -558,6 +536,265 @@ class MainActivityL : AppCompatActivity() {
                 }
 
             }
+
+    }
+
+    // =========================================================
+    // MATCHMAKING TIMER
+    // =========================================================
+
+    private fun startMatchmakingTimer() {
+
+        if (matchmakingTimerJob != null) {
+            return
+        }
+
+        if (cancelDialogShown) {
+            return
+        }
+
+        matchmakingTimerJob = lifecycleScope.launch {
+
+            Log.d(
+                "MATCHMAKING",
+                "Timer started — waiting for opponent"
+            )
+
+            var elapsedSeconds = 0
+
+            while (
+                currentLobbyStatus == "LOBBY" &&
+                !gameFinished &&
+                !surrenderedByUser
+            ) {
+
+                delay(1000L)
+
+                elapsedSeconds++
+
+                val remainingForDialog =
+                    60 - elapsedSeconds
+
+                if (
+                    remainingForDialog > 0 &&
+                    tvStatusRef != null &&
+                    currentLobbyStatus == "LOBBY"
+                ) {
+
+                    tvStatusRef?.text =
+                        "Finding opponent... " +
+                                "${remainingForDialog}s"
+                }
+
+                if (
+                    elapsedSeconds == 60 &&
+                    !cancelDialogShown &&
+                    currentLobbyStatus == "LOBBY"
+                ) {
+
+                    cancelDialogShown = true
+
+                    matchmakingTimerJob = null
+
+                    showCancelDialog()
+
+                    return@launch
+                }
+
+                if (elapsedSeconds >= 300) {
+
+                    Log.d(
+                        "MATCHMAKING",
+                        "Auto-cancel after 5 minutes"
+                    )
+
+                    matchmakingTimerJob = null
+
+                    autoCancelMatch()
+
+                    return@launch
+                }
+
+            }
+
+            matchmakingTimerJob = null
+
+        }
+
+    }
+
+    // =========================================================
+    // TURN COUNTDOWN
+    // =========================================================
+
+    private fun startTurnCountdown() {
+
+        turnCountdownJob?.cancel()
+
+        turnCountdownJob = lifecycleScope.launch {
+
+            while (isActive) {
+
+                val now =
+                    System.currentTimeMillis() / 1000.0
+
+                val remaining =
+                    currentTurnDeadline - now
+
+                if (remaining <= 0) {
+
+                    runOnUiThread {
+
+                        if (
+                            currentLobbyStatus == "ACTIVE" &&
+                            !gameFinished &&
+                            !surrenderedByUser
+                        ) {
+
+                            tvStatusRef?.text =
+                                "⏰ Time out!"
+                        }
+                    }
+
+                    break
+                }
+
+                val secs = remaining.toInt()
+
+                val isMyTurn =
+                    !myColor.isNullOrBlank() &&
+                            currentTurnColor.equals(
+                                myColor,
+                                ignoreCase = true
+                            )
+
+                runOnUiThread {
+
+                    if (
+                        currentLobbyStatus == "ACTIVE" &&
+                        !gameFinished &&
+                        !surrenderedByUser
+                    ) {
+
+                        tvStatusRef?.text =
+                            if (isMyTurn) {
+
+                                "⏳ Your Turn! ${secs}s"
+
+                            } else {
+
+                                "⏳ " +
+                                        "${currentTurnColor}'s " +
+                                        "Turn - ${secs}s"
+                            }
+                    }
+                }
+
+                delay(1000L)
+            }
+        }
+    }
+
+    // =========================================================
+    // SHOW CANCEL DIALOG
+    // =========================================================
+
+    private fun showCancelDialog() {
+
+        if (isFinishing || isDestroyed) {
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("⏱️ No Opponent Found")
+            .setMessage(
+                "It's been 60 seconds and no opponent " +
+                        "has joined. Do you want to keep waiting " +
+                        "or cancel and get a refund?"
+            )
+            .setCancelable(false)
+            .setPositiveButton("Keep Waiting") { dialog, _ ->
+
+                dialog.dismiss()
+
+                cancelDialogShown = false
+
+                Log.d(
+                    "MATCHMAKING",
+                    "User chose to keep waiting"
+                )
+
+                startMatchmakingTimer()
+
+            }
+            .setNegativeButton("Cancel & Refund") { dialog, _ ->
+
+                dialog.dismiss()
+
+                Log.d(
+                    "MATCHMAKING",
+                    "User cancelled — refunding"
+                )
+
+                performCancel()
+
+            }
+            .show()
+
+    }
+
+    // =========================================================
+    // AUTO CANCEL
+    // =========================================================
+
+    private fun autoCancelMatch() {
+
+        Toast.makeText(
+            this,
+            "No opponent found. Cancelling...",
+            Toast.LENGTH_LONG
+        ).show()
+
+        performCancel()
+
+    }
+
+    // =========================================================
+    // PERFORM CANCEL
+    // =========================================================
+
+    private fun performCancel() {
+
+        if (surrenderedByUser) {
+            return
+        }
+
+        surrenderedByUser = true
+
+        turnCountdownJob?.cancel()
+
+        val socket = gameSocket
+
+        if (socket != null) {
+
+            socket.surrender()
+
+            socket.stopReconnect()
+        }
+
+        Toast.makeText(
+            this,
+            "Match cancelled. Coins refunded.",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        lifecycleScope.launch {
+
+            delay(700)
+
+            finish()
+
+        }
 
     }
 
@@ -675,14 +912,7 @@ class MainActivityL : AppCompatActivity() {
             )
 
         if (assignments == null) {
-
-            Log.w(
-                "LUDO_PLAYERS",
-                "player_assignments missing"
-            )
-
             return
-
         }
 
         val playerNames =
@@ -723,29 +953,19 @@ class MainActivityL : AppCompatActivity() {
                         token
                     )
 
-                Log.d(
-                    "LUDO_PLAYERS",
-                    "I am $color " +
-                            "($myPlayerName)"
-                )
-
                 break
 
             }
 
         }
 
-        txtNameBlue.text =
-            "Blue"
+        txtNameBlue.text = "Blue"
 
-        txtNameRed.text =
-            "Red"
+        txtNameRed.text = "Red"
 
-        txtNameGreen.text =
-            "Green"
+        txtNameGreen.text = "Green"
 
-        txtNameYellow.text =
-            "Yellow"
+        txtNameYellow.text = "Yellow"
 
         val keys =
             assignments.keys()
@@ -773,46 +993,29 @@ class MainActivityL : AppCompatActivity() {
             when (color) {
 
                 "BLUE" -> {
-
-                    txtNameBlue.text =
-                        playerName
-
+                    txtNameBlue.text = playerName
                 }
 
                 "RED" -> {
-
-                    txtNameRed.text =
-                        playerName
-
+                    txtNameRed.text = playerName
                 }
 
                 "GREEN" -> {
-
-                    txtNameGreen.text =
-                        playerName
-
+                    txtNameGreen.text = playerName
                 }
 
                 "YELLOW" -> {
-
-                    txtNameYellow.text =
-                        playerName
-
+                    txtNameYellow.text = playerName
                 }
 
             }
 
         }
 
-        Log.d(
-            "LUDO_PLAYERS",
-            "Assignments=$assignments Names=$playerNames"
-        )
-
     }
 
     // =========================================================
-    // GET DEVICE NAME (FALLBACK ONLY)
+    // GET DEVICE NAME
     // =========================================================
 
     private fun deviceNameFromToken(
@@ -836,9 +1039,7 @@ class MainActivityL : AppCompatActivity() {
                 ignoreCase = true
             )
         ) {
-
             return "Android Emulator"
-
         }
 
         if (
@@ -897,7 +1098,7 @@ class MainActivityL : AppCompatActivity() {
                 0
             )
 
-        var currentTurnColor =
+        var currentTurnColorLocal =
             ""
 
         if (
@@ -907,7 +1108,7 @@ class MainActivityL : AppCompatActivity() {
             turnIndex < turnOrder.length()
         ) {
 
-            currentTurnColor =
+            currentTurnColorLocal =
                 turnOrder.optString(
                     turnIndex,
                     ""
@@ -915,17 +1116,23 @@ class MainActivityL : AppCompatActivity() {
 
         }
 
-        val friendlyStatus =
-            createFriendlyStatus(
-                gameState,
-                currentTurnColor
-            )
+        currentTurnColor = currentTurnColorLocal
 
-        tvStatus.text =
-            friendlyStatus
+        // Don't overwrite status while in LOBBY
+        if (currentLobbyStatus != "LOBBY") {
+
+            val friendlyStatus =
+                createFriendlyStatus(
+                    gameState,
+                    currentTurnColorLocal
+                )
+
+            tvStatus.text =
+                friendlyStatus
+        }
 
         highlightCurrentTurn(
-            currentTurnColor
+            currentTurnColorLocal
         )
 
         val diceDrawables =
@@ -961,13 +1168,30 @@ class MainActivityL : AppCompatActivity() {
 
         }
 
-        Log.d(
-            "LUDO_STATE",
-            "Sync complete. " +
-                    "MyColor=$myColor " +
-                    "Turn=$currentTurnColor " +
-                    "HasRolled=$clientHasRolledLock"
-        )
+        // =====================================================
+        // TURN COUNTDOWN
+        // =====================================================
+
+        val deadline =
+            gameState.optDouble(
+                "turn_deadline",
+                0.0
+            )
+
+        if (
+            deadline > 0 &&
+            currentLobbyStatus == "ACTIVE"
+        ) {
+
+            currentTurnDeadline = deadline
+
+            startTurnCountdown()
+
+        } else {
+
+            turnCountdownJob?.cancel()
+
+        }
 
     }
 
@@ -989,12 +1213,8 @@ class MainActivityL : AppCompatActivity() {
             playerAssignments?.length()
                 ?: 0
 
-        if (
-            playerCount < 2
-        ) {
-
+        if (playerCount < 2) {
             return "Waiting for opponent..."
-
         }
 
         if (
@@ -1002,9 +1222,7 @@ class MainActivityL : AppCompatActivity() {
                 "game_status"
             ) == "COMPLETED"
         ) {
-
             return "Game completed"
-
         }
 
         if (
@@ -1016,13 +1234,9 @@ class MainActivityL : AppCompatActivity() {
         ) {
 
             return if (clientHasRolledLock) {
-
                 "Your turn • Select a token"
-
             } else {
-
                 "Your Turn! Tap the dice."
-
             }
 
         }
@@ -1039,16 +1253,10 @@ class MainActivityL : AppCompatActivity() {
                 currentTurnColor
             )
 
-        return if (
-            opponentName.isNotBlank()
-        ) {
-
+        return if (opponentName.isNotBlank()) {
             "$opponentName's Turn"
-
         } else {
-
             "$currentTurnColor's Turn"
-
         }
 
     }
@@ -1113,22 +1321,20 @@ class MainActivityL : AppCompatActivity() {
         payout: Int
     ) {
 
+        if (didWin) {
+            SoundManager.playWin()
+        } else {
+            SoundManager.playLose()
+        }
+
         setContent {
 
             MaterialTheme {
 
                 WinnerScreen(
-
                     didWin = didWin,
-
                     payout = payout,
-
-                    onContinue = {
-
-                        finish()
-
-                    }
-
+                    onContinue = { finish() }
                 )
 
             }
@@ -1139,34 +1345,20 @@ class MainActivityL : AppCompatActivity() {
 
     // =========================================================
     // SURRENDER SCREEN
-    //
-    // Shown when the user presses back mid-game.
-    // Stays visible until the user taps "Continue".
     // =========================================================
 
     private fun showSurrenderScreen() {
+
+        SoundManager.playLose()
 
         setContent {
 
             MaterialTheme {
 
                 WinnerScreen(
-
                     didWin = false,
-
                     payout = 0,
-
-                    onContinue = {
-
-                        // ---------------------------------
-                        // User explicitly closed the
-                        // lose screen — now exit.
-                        // ---------------------------------
-
-                        finish()
-
-                    }
-
+                    onContinue = { finish() }
                 )
 
             }
@@ -1176,20 +1368,11 @@ class MainActivityL : AppCompatActivity() {
     }
 
     // =========================================================
-    // BACK BUTTON — SURRENDER WITH LOSE SCREEN
-    //
-    // Flow:
-    //   1. WebSocket sends "surrender"
-    //   2. Lose screen shown
-    //   3. Screen stays visible until user taps Continue
+    // BACK BUTTON
     // =========================================================
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-
-        // ---------------------------------------------
-        // Already surrendered once — just close
-        // ---------------------------------------------
 
         if (surrenderedByUser) {
 
@@ -1200,10 +1383,6 @@ class MainActivityL : AppCompatActivity() {
 
         val socket = gameSocket
 
-        // ---------------------------------------------
-        // No socket, or game already finished
-        // ---------------------------------------------
-
         if (socket == null || gameFinished) {
 
             super.onBackPressed()
@@ -1211,36 +1390,20 @@ class MainActivityL : AppCompatActivity() {
             return
         }
 
-        Log.d(
-            "LUDO_BACK",
-            "Back pressed. Sending surrender."
-        )
+        if (currentLobbyStatus == "LOBBY") {
 
-        // ---------------------------------------------
-        // Mark flags
-        // ---------------------------------------------
+            performCancel()
+
+            return
+        }
 
         surrenderedByUser = true
 
-        // ---------------------------------------------
-        // Tell server we're forfeiting
-        // ---------------------------------------------
+        turnCountdownJob?.cancel()
 
         socket.surrender()
 
-        // ---------------------------------------------
-        // Prevent auto-reconnect from firing
-        // during the shutdown sequence
-        // ---------------------------------------------
-
         socket.stopReconnect()
-
-        // ---------------------------------------------
-        // Show lose screen
-        //
-        // Stays visible until user taps Continue.
-        // No auto-close timer.
-        // ---------------------------------------------
 
         showSurrenderScreen()
 
@@ -1253,6 +1416,14 @@ class MainActivityL : AppCompatActivity() {
     override fun onDestroy() {
 
         super.onDestroy()
+
+        matchmakingTimerJob?.cancel()
+
+        matchmakingTimerJob = null
+
+        turnCountdownJob?.cancel()
+
+        turnCountdownJob = null
 
         gameSocket?.disconnect()
 

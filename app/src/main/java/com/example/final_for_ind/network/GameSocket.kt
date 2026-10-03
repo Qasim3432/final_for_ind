@@ -75,8 +75,8 @@ class GameSocket(
                     "Token=$playerToken"
         )
 
-        val url =
-            "ws://192.168.18.48:8090/ws/ludo/$gameId/?player_token=$playerToken"
+
+        val url = "ws://192.168.18.55:8090/ws/ludo/$gameId/?player_token=$playerToken"
 
         Log.d(
             "GAME_SOCKET",

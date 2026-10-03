@@ -20,9 +20,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.HeadsetMic
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,16 +76,16 @@ fun SettingScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     // ==========================================================
-    // NOTIFICATIONS — PERSISTED
+    // SOUND EFFECTS — PERSISTED
     //
     // Read initial value from SharedPreferences.
     // Save on every change.
     // ==========================================================
 
-    var notificationsEnabled by remember {
+    var soundEnabled by remember {
         mutableStateOf(
             prefs.getBoolean(
-                "notifications_enabled",
+                "sound_enabled",
                 true
             )
         )
@@ -246,14 +246,14 @@ fun SettingScreen(
                     )
 
                     PremiumSettingItem(
-                        icon = Icons.Default.Notifications,
-                        title = "Notifications",
-                        subtitle = if (notificationsEnabled) "Enabled" else "Disabled",
+                        icon = Icons.Default.VolumeUp,
+                        title = "Sound Effects",
+                        subtitle = if (soundEnabled) "Enabled" else "Disabled",
                         showSwitch = true,
-                        switchState = notificationsEnabled,
+                        switchState = soundEnabled,
                         onSwitchChange = { newValue ->
 
-                            notificationsEnabled = newValue
+                            soundEnabled = newValue
 
                             // ------------------------------------
                             // PERSIST TO SHARED PREFERENCES
@@ -261,7 +261,7 @@ fun SettingScreen(
 
                             prefs.edit()
                                 .putBoolean(
-                                    "notifications_enabled",
+                                    "sound_enabled",
                                     newValue
                                 )
                                 .apply()

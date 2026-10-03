@@ -19,11 +19,11 @@
         <DialogSelection />
       </SelectionState>
       <SelectionState runConfigName="androidTest">
-        <option name="selectionMode" value="DIALOG" />
-        <DropdownSelection timestamp="2026-09-30T00:08:56.363271Z">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2026-09-30T21:55:58.331110Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="Wireless" identifier="serviceName=adb-INOFGYXSQ8USLNIF-bofRja" />
+              <DeviceId pluginId="Wireless" identifier="serviceName=adb-099344034N019977-O8Pea1" />
             </handle>
           </Target>
         </DropdownSelection>
@@ -31,22 +31,12 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=INOFGYXSQ8USLNIF" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=RZ8M947LY2A" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
                 <DeviceId pluginId="PhysicalDevice" identifier="serial=099344034N019977" />
-              </handle>
-            </Target>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=0989337355001913" />
-              </handle>
-            </Target>
-            <Target type="DEFAULT_BOOT">
-              <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=RZ8M947LY2A" />
               </handle>
             </Target>
           </targets>
