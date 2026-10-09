@@ -2,6 +2,7 @@ package com.example.final_for_ind.screens.profile
 
 import android.content.Context
 import android.net.Uri
+import android.util.Patterns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -18,12 +19,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -31,6 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -41,6 +46,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.random.Random
+
 
 fun uriToFile(context: Context, uri: Uri): File? {
     return try {
@@ -54,6 +60,26 @@ fun uriToFile(context: Context, uri: Uri): File? {
         null
     }
 }
+
+
+// ==========================================================
+// ADAPTIVE FONT SIZE FOR COIN BALANCE
+// ==========================================================
+
+private fun adaptiveCoinsFontSize(value: Int): TextUnit {
+    val digits = value.toString().length
+    return when {
+        digits <= 4 -> 36.sp
+        digits == 5 -> 32.sp
+        digits == 6 -> 28.sp
+        digits == 7 -> 24.sp
+        digits == 8 -> 22.sp
+        digits == 9 -> 20.sp
+        digits == 10 -> 18.sp
+        else -> 16.sp
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,10 +106,14 @@ fun ProfileScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
 
-    // ✅ NEW: Transaction popup state
+    // ✅ FIX #2: Transaction popup state
     var showTransactionDialog by remember { mutableStateOf(false) }
     var transactionsList by remember { mutableStateOf<List<TransactionLog>>(emptyList()) }
     var isLoadingTxns by remember { mutableStateOf(false) }
+
+    // ==========================================
+    // IMAGE PICKER
+    // ==========================================
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -95,9 +125,14 @@ fun ProfileScreen(
                 try {
                     val token = sessionManager.getOrCreateUserToken()
                     val picFile = uriToFile(context, uri)
-                    val success = sessionManager.syncUserProfile(token, userName, userEmail, picFile)
+                    val success = sessionManager.syncUserProfile(
+                        token, userName, userEmail, picFile
+                    )
                     if (success) {
-                        val prefs = context.getSharedPreferences("ludo_session_prefs", Context.MODE_PRIVATE)
+                        val prefs = context.getSharedPreferences(
+                            "ludo_session_prefs",
+                            Context.MODE_PRIVATE
+                        )
                         savedPicUrl = prefs.getString("profile_pic_url", null)
                         profileImageUri = null
                         snackbarHostState.showSnackbar("Profile picture updated")
@@ -115,13 +150,20 @@ fun ProfileScreen(
         }
     }
 
+    // ==========================================
+    // LOAD PROFILE + BALANCE
+    // ==========================================
+
     LaunchedEffect(Unit) {
         scope.launch {
             try {
                 val token = sessionManager.getOrCreateUserToken()
                 val balance = sessionManager.fetchUserBalanceFromServer(token)
                 coins = balance.coins
-                val prefs = context.getSharedPreferences("ludo_session_prefs", Context.MODE_PRIVATE)
+                val prefs = context.getSharedPreferences(
+                    "ludo_session_prefs",
+                    Context.MODE_PRIVATE
+                )
                 savedPicUrl = prefs.getString("profile_pic_url", null)
                 userName = prefs.getString("email_user_name", "Guest") ?: "Guest"
                 userEmail = prefs.getString("email_user_email", "") ?: ""
@@ -131,26 +173,86 @@ fun ProfileScreen(
         }
     }
 
-    val bgGradient = Brush.radialGradient(listOf(Color(0xFF2B0000), Color(0xFF0A0A0A)), radius = 1200f)
+    // ==========================================
+    // LOAD TRANSACTIONS FUNCTION (reusable)
+    // ==========================================
+
+    fun loadTransactions() {
+        isLoadingTxns = true
+        scope.launch {
+            try {
+                val token = sessionManager.getOrCreateUserToken()
+                transactionsList = sessionManager.fetchTransactionHistory(token)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoadingTxns = false
+            }
+        }
+    }
+
+    // ==========================================
+    // BACKGROUND
+    // ==========================================
+
+    val bgGradient = Brush.radialGradient(
+        listOf(Color(0xFF2B0000), Color(0xFF0A0A0A)),
+        radius = 1200f
+    )
 
     Box(Modifier.fillMaxSize().background(bgGradient)) {
+
         CanvasBg()
+
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            bottomBar = { BottomNavBar(selectedIndex = selectedNavIndex, onItemClick = onNavItemClick) },
+            bottomBar = {
+                BottomNavBar(
+                    selectedIndex = selectedNavIndex,
+                    onItemClick = onNavItemClick
+                )
+            },
             topBar = {
-                Box(Modifier.fillMaxWidth().padding(top = 24.dp).height(40.dp), contentAlignment = Alignment.Center) {
-                    Box(Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF1A1A1A), Color(0xFF000)))).border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(20.dp)).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 24.dp)
+                        .height(40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        Modifier
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFF1A1A1A), Color(0xFF000))
+                                )
+                            )
+                            .border(
+                                2.dp,
+                                Color(0xFFD4AF37),
+                                RoundedCornerShape(20.dp)
+                            )
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("👑", fontSize = 18.sp)
                             Spacer(Modifier.width(8.dp))
-                            Text("PREMIUM PRO", color = Color(0xFFD4AF37), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                            Text(
+                                "PREMIUM PRO",
+                                color = Color(0xFFD4AF37),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp
+                            )
                         }
                     }
                 }
             },
             containerColor = Color.Transparent
         ) { paddingValues ->
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -159,49 +261,175 @@ fun ProfileScreen(
                     .padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+
                 Spacer(Modifier.height(24.dp))
-                Box(modifier = Modifier.size(130.dp), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(130.dp).blur(20.dp).background(Color(0xFFFFD700).copy(alpha = 0.3f), CircleShape))
-                    Box(modifier = Modifier.size(120.dp).clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F)))).border(3.dp, Color(0xFFD4AF37), CircleShape).clickable(enabled = !isUploading) { imagePicker.launch("image/*") }, contentAlignment = Alignment.Center) {
+
+                // ==========================================
+                // AVATAR
+                // ==========================================
+
+                Box(
+                    modifier = Modifier.size(130.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+
+                    // ✅ FIX #7: soft radial glow instead of blur (GPU cheaper)
+                    Box(
+                        Modifier
+                            .size(130.dp)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(
+                                        Color(0xFFFFD700).copy(alpha = 0.35f),
+                                        Color.Transparent
+                                    )
+                                ),
+                                CircleShape
+                            )
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(Color(0xFF8B0000), Color(0xFFD32F2F))
+                                )
+                            )
+                            .border(3.dp, Color(0xFFD4AF37), CircleShape)
+                            .clickable(enabled = !isUploading) {
+                                imagePicker.launch("image/*")
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+
                         if (profileImageUri != null || isUploading) {
                             if (profileImageUri != null) {
-                                AsyncImage(model = profileImageUri, contentDescription = "Profile", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                AsyncImage(
+                                    model = profileImageUri,
+                                    contentDescription = "Profile",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
                             if (isUploading) {
-                                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
-                                    CircularProgressIndicator(color = Color(0xFFD4AF37), modifier = Modifier.size(32.dp))
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.4f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFD4AF37),
+                                        modifier = Modifier.size(32.dp)
+                                    )
                                 }
                             }
                         } else if (savedPicUrl != null) {
-                            AsyncImage(model = savedPicUrl, contentDescription = "Profile", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            AsyncImage(
+                                model = savedPicUrl,
+                                contentDescription = "Profile",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         } else {
-                            Icon(Icons.Default.Person, null, tint = Color(0xFFFFD700), modifier = Modifier.size(60.dp))
+                            Icon(
+                                Icons.Default.Person,
+                                null,
+                                tint = Color(0xFFFFD700),
+                                modifier = Modifier.size(60.dp)
+                            )
                         }
                     }
                 }
+
                 Spacer(Modifier.height(12.dp))
+
+                // ==========================================
+                // USER NAME + EDIT
+                // ==========================================
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(userName, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        userName,
+                        color = Color.White,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Spacer(Modifier.width(8.dp))
                     IconButton(onClick = { showEditDialog = true }) {
-                        Icon(Icons.Default.Edit, null, tint = Color(0xFFD4AF37), modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Default.Edit,
+                            null,
+                            tint = Color(0xFFD4AF37),
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
+
                 if (userEmail.isNotBlank()) {
-                    Text(userEmail, color = Color(0xFFD4AF37).copy(alpha = 0.8f), fontSize = 14.sp)
+                    Text(
+                        userEmail,
+                        color = Color(0xFFD4AF37).copy(alpha = 0.8f),
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
+
                 Spacer(Modifier.height(24.dp))
-                Box(modifier = Modifier.fillMaxWidth().height(90.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF0A0A0A).copy(alpha = 0.8f)).border(2.5.dp, Color(0xFFD4AF37), RoundedCornerShape(20.dp)).padding(horizontal = 20.dp), contentAlignment = Alignment.Center) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+
+                // ==========================================
+                // COINS CARD (adaptive font)
+                // ==========================================
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(90.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFF0A0A0A).copy(alpha = 0.8f))
+                        .border(
+                            2.5.dp,
+                            Color(0xFFD4AF37),
+                            RoundedCornerShape(20.dp)
+                        )
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text("🪙", fontSize = 42.sp)
                         Spacer(Modifier.width(16.dp))
-                        Column {
-                            Text("Total Coins", color = Color(0xFFD4AF37), fontSize = 14.sp)
-                            Text("$coins", color = Color(0xFFFFD700), fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Total Coins",
+                                color = Color(0xFFD4AF37),
+                                fontSize = 14.sp
+                            )
+                            // ✅ FIX #4: adaptive font size
+                            Text(
+                                "$coins",
+                                color = Color(0xFFFFD700),
+                                fontSize = adaptiveCoinsFontSize(coins),
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
+
                 Spacer(Modifier.height(28.dp))
+
+                // ==========================================
+                // MENU ITEMS
+                // ==========================================
 
                 RoyalMenuItem(
                     icon = "🏅",
@@ -209,9 +437,15 @@ fun ProfileScreen(
                     subtitle = "Top players ranking",
                     onClick = onLeaderboard
                 )
+
                 Spacer(Modifier.height(12.dp))
 
-                RoyalMenuItem(icon = "🏆", title = "Game History", onClick = onGameHistory)
+                RoyalMenuItem(
+                    icon = "🏆",
+                    title = "Game History",
+                    onClick = onGameHistory
+                )
+
                 Spacer(Modifier.height(12.dp))
 
                 RoyalMenuItem(
@@ -220,39 +454,37 @@ fun ProfileScreen(
                     subtitle = "Invite friends & earn",
                     onClick = onReferralDashboard
                 )
+
                 Spacer(Modifier.height(12.dp))
 
-                // ✅ FIXED: Transaction History opens popup
+                // ✅ FIX #2 + #3: Transaction history — popup only, no double action
                 RoyalMenuItem(
                     icon = "🔄",
                     title = "Transaction History",
                     subtitle = "View deposits & withdrawals",
                     onClick = {
-                        onTransactionHistory()
                         showTransactionDialog = true
-                        if (transactionsList.isEmpty()) {
-                            isLoadingTxns = true
-                            scope.launch {
-                                try {
-                                    val token = sessionManager.getOrCreateUserToken()
-                                    transactionsList = sessionManager.fetchTransactionHistory(token)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                } finally {
-                                    isLoadingTxns = false
-                                }
-                            }
-                        }
+                        loadTransactions()
                     }
                 )
+
                 Spacer(Modifier.height(12.dp))
 
-                RoyalMenuItem(icon = "⏻", title = "Logout", onClick = { onLogout() }, isLogout = true)
+                RoyalMenuItem(
+                    icon = "⏻",
+                    title = "Logout",
+                    onClick = { onLogout() },
+                    isLogout = true
+                )
 
                 Spacer(Modifier.height(40.dp))
             }
         }
     }
+
+    // ==========================================
+    // EDIT PROFILE DIALOG
+    // ==========================================
 
     if (showEditDialog) {
         EditProfileDialog(
@@ -260,14 +492,17 @@ fun ProfileScreen(
             currentEmail = userEmail,
             onDismiss = { showEditDialog = false },
             onSave = { newName, newEmail ->
-                showEditDialog = false
+                // ✅ FIX #5: callback returns when done
                 scope.launch {
                     try {
                         val token = sessionManager.getOrCreateUserToken()
-                        val success = sessionManager.syncUserProfile(token, newName, newEmail, null)
+                        val success = sessionManager.syncUserProfile(
+                            token, newName, newEmail, null
+                        )
                         if (success) {
                             userName = newName
                             userEmail = newEmail
+                            showEditDialog = false
                             snackbarHostState.showSnackbar("Profile updated")
                         } else {
                             snackbarHostState.showSnackbar("Update failed")
@@ -280,15 +515,20 @@ fun ProfileScreen(
         )
     }
 
-    // ✅ NEW: Transaction history popup
+    // ==========================================
+    // TRANSACTION HISTORY POPUP
+    // ==========================================
+
     if (showTransactionDialog) {
         TransactionHistoryPopup(
             transactions = transactionsList,
             isLoading = isLoadingTxns,
+            onRefresh = { loadTransactions() },
             onDismiss = { showTransactionDialog = false }
         )
     }
 }
+
 
 // ==========================================================
 // TRANSACTION HISTORY POPUP
@@ -298,6 +538,7 @@ fun ProfileScreen(
 fun TransactionHistoryPopup(
     transactions: List<TransactionLog>,
     isLoading: Boolean,
+    onRefresh: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val gold = Color(0xFFD4AF37)
@@ -316,11 +557,30 @@ fun TransactionHistoryPopup(
                 Text("🔄", fontSize = 22.sp)
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    "Recent Transactions Ledger",
+                    "Recent Transactions",
                     color = gold,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f)
                 )
+
+                // ✅ FIX #2: Refresh button
+                IconButton(
+                    onClick = {
+                        if (!isLoading) onRefresh()
+                    },
+                    enabled = !isLoading
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = if (isLoading)
+                            gold.copy(alpha = 0.4f)
+                        else
+                            gold,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
         },
         text = {
@@ -374,7 +634,9 @@ fun TransactionHistoryPopup(
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = gold),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = gold
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
@@ -386,6 +648,7 @@ fun TransactionHistoryPopup(
         }
     )
 }
+
 
 @Composable
 fun ProfileTransactionRow(
@@ -423,7 +686,10 @@ fun ProfileTransactionRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isDeposit) "Deposit Request" else "Withdrawal Request",
+                    text = if (isDeposit)
+                        "Deposit Request"
+                    else
+                        "Withdrawal Request",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
@@ -432,14 +698,19 @@ fun ProfileTransactionRow(
                     text = log.dateString,
                     color = Color.Gray,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 2.dp)
+                    modifier = Modifier.padding(top = 2.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "${if (isDeposit) "+" else "-"}${log.amount}",
-                    color = if (isDeposit) Color(0xFF2ECC71) else Color(0xFFE74C3C),
+                    color = if (isDeposit)
+                        Color(0xFF2ECC71)
+                    else
+                        Color(0xFFE74C3C),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
@@ -455,50 +726,242 @@ fun ProfileTransactionRow(
     }
 }
 
+
 // ==========================================================
-// EDIT PROFILE DIALOG
+// EDIT PROFILE DIALOG (with loading + email validation)
 // ==========================================================
 
 @Composable
-fun EditProfileDialog(currentName: String, currentEmail: String, onDismiss: () -> Unit, onSave: (String, String) -> Unit){
+fun EditProfileDialog(
+    currentName: String,
+    currentEmail: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit
+) {
     var name by remember { mutableStateOf(currentName) }
     var email by remember { mutableStateOf(currentEmail) }
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
+    val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    val canSave = name.isNotBlank() && isEmailValid && !isSaving
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!isSaving) onDismiss()
+        },
         containerColor = Color(0xFF1A1A1A),
-        title = { Text("Edit Profile", color = Color(0xFFD4AF37), fontWeight = FontWeight.Bold) },
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Text(
+                "Edit Profile",
+                color = Color(0xFFD4AF37),
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name", color = Color(0xFFD4AF37)) },
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFD4AF37), unfocusedBorderColor = Color(0xFFD4AF37).copy(alpha = 0.5f), focusedLabelColor = Color(0xFFD4AF37), unfocusedLabelColor = Color(0xFFD4AF37).copy(alpha = 0.7f), cursorColor = Color(0xFFD4AF37), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        errorMessage = ""
+                    },
+                    label = {
+                        Text("Name", color = Color(0xFFD4AF37))
+                    },
+                    singleLine = true,
+                    enabled = !isSaving,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFD4AF37),
+                        unfocusedBorderColor = Color(0xFFD4AF37).copy(alpha = 0.5f),
+                        focusedLabelColor = Color(0xFFD4AF37),
+                        unfocusedLabelColor = Color(0xFFD4AF37).copy(alpha = 0.7f),
+                        cursorColor = Color(0xFFD4AF37),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email", color = Color(0xFFD4AF37)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFFD4AF37), unfocusedBorderColor = Color(0xFFD4AF37).copy(alpha = 0.5f), focusedLabelColor = Color(0xFFD4AF37), unfocusedLabelColor = Color(0xFFD4AF37).copy(alpha = 0.7f), cursorColor = Color(0xFFD4AF37), focusedTextColor = Color.White, unfocusedTextColor = Color.White))
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        errorMessage = ""
+                    },
+                    label = {
+                        Text("Email", color = Color(0xFFD4AF37))
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Email
+                    ),
+                    singleLine = true,
+                    enabled = !isSaving,
+                    // ✅ FIX #6: email validation visual
+                    isError = email.isNotBlank() && !isEmailValid,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFD4AF37),
+                        unfocusedBorderColor = Color(0xFFD4AF37).copy(alpha = 0.5f),
+                        focusedLabelColor = Color(0xFFD4AF37),
+                        unfocusedLabelColor = Color(0xFFD4AF37).copy(alpha = 0.7f),
+                        cursorColor = Color(0xFFD4AF37),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        errorBorderColor = Color(0xFFD32F2F)
+                    )
+                )
+
+                if (email.isNotBlank() && !isEmailValid) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Please enter a valid email address",
+                        color = Color(0xFFD32F2F),
+                        fontSize = 11.sp
+                    )
+                }
+
+                if (errorMessage.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        errorMessage,
+                        color = Color(0xFFD32F2F),
+                        fontSize = 12.sp
+                    )
+                }
             }
         },
-        confirmButton = { Button(onClick = { onSave(name, email) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))) { Text("Save", color = Color.Black) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel", color = Color(0xFFD4AF37)) } }
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (canSave) {
+                        // ✅ FIX #5: loading state
+                        isSaving = true
+                        onSave(name.trim(), email.trim())
+                    }
+                },
+                enabled = canSave,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD4AF37),
+                    disabledContainerColor = Color(0xFF8B6914).copy(alpha = 0.5f)
+                )
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = Color.Black,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(
+                    if (isSaving) "Saving..." else "Save",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSaving
+            ) {
+                Text(
+                    "Cancel",
+                    color = Color(0xFFD4AF37)
+                )
+            }
+        }
     )
 }
 
+
+// ==========================================================
+// MENU ITEM
+// ==========================================================
+
 @Composable
-fun RoyalMenuItem(icon: String, title: String, subtitle: String? = null, onClick: () -> Unit, isLogout: Boolean = false) {
-    Box(modifier = Modifier.fillMaxWidth().height(if (subtitle == null) 64.dp else 80.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFF0A0A0A).copy(alpha = 0.7f)).border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(18.dp)).clickable { onClick() }.padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+fun RoyalMenuItem(
+    icon: String,
+    title: String,
+    subtitle: String? = null,
+    onClick: () -> Unit,
+    isLogout: Boolean = false
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (subtitle == null) 64.dp else 80.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFF0A0A0A).copy(alpha = 0.7f))
+            .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(18.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 18.dp),
+        contentAlignment = Alignment.Center
+    ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(icon, fontSize = 28.sp)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                if (subtitle != null) Text(subtitle, color = Color(0xFFD4AF37).copy(alpha = 0.7f), fontSize = 12.sp)
+                Text(
+                    title,
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        color = Color(0xFFD4AF37).copy(alpha = 0.7f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            Icon(Icons.Default.ArrowForwardIos, null, tint = Color(0xFFD4AF37), modifier = Modifier.size(16.dp))
+            Icon(
+                Icons.Default.ArrowForwardIos,
+                null,
+                tint = Color(0xFFD4AF37),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
 
+
+// ==========================================================
+// BACKGROUND SPARKLES (FIXED — no jumping)
+// ==========================================================
+
 @Composable
 fun CanvasBg() {
+
+    // ✅ FIX #1: positions computed once via remember
+    val sparklePositions = remember {
+        List(60) {
+            Triple(
+                Random.nextFloat(),
+                Random.nextFloat(),
+                Random.nextFloat()
+            )
+        }
+    }
+
     Canvas(Modifier.fillMaxSize()) {
-        repeat(60) { drawCircle(Color(0xFFFFD700).copy(alpha = Random.nextFloat() * 0.5f), radius = Random.nextFloat() * 2.5f, center = androidx.compose.ui.geometry.Offset(Random.nextFloat() * size.width, Random.nextFloat() * size.height)) }
+        sparklePositions.forEach { (fx, fy, sizeFactor) ->
+            drawCircle(
+                Color(0xFFFFD700).copy(alpha = sizeFactor * 0.5f),
+                radius = sizeFactor * 2.5f,
+                center = Offset(
+                    fx * size.width,
+                    fy * size.height
+                )
+            )
+        }
     }
 }

@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -14,9 +15,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,6 +89,9 @@ class PrivateRoomViewModel : ViewModel() {
 
     var betAmount by mutableStateOf(0)
 
+    // ✅ FIX #3: Navigation flag
+    var navigationHandled by mutableStateOf(false)
+
     private var pollingJob: Job? = null
 
 
@@ -102,56 +109,39 @@ class PrivateRoomViewModel : ViewModel() {
             isLoading = true
             error = ""
             shouldStartGame = false
+            navigationHandled = false
 
-            this@PrivateRoomViewModel.maxPlayers =
-                maxPlayers
-
-            this@PrivateRoomViewModel.betAmount =
-                bet
+            this@PrivateRoomViewModel.maxPlayers = maxPlayers
+            this@PrivateRoomViewModel.betAmount = bet
 
             try {
 
-                val manager =
-                    GameSessionManager(context)
+                val manager = GameSessionManager(context)
 
-                val response =
-                    manager.createFriendRoom(
-                        bet,
-                        maxPlayers == 2
-                    )
+                val response = manager.createFriendRoom(
+                    bet,
+                    maxPlayers == 2
+                )
 
                 if (
                     response == null
                     || response.optString("status") != "success"
                 ) {
 
-                    error =
-                        response?.optString("message")
-                            ?: "Room create failed. Server check karo."
+                    error = response?.optString("message")
+                        ?: "Room create failed. Server check karo."
 
                 } else {
 
-                    createdRoomId =
-                        response.optString(
-                            "game_id",
-                            ""
-                        )
-
-                    roomCode =
-                        response.optString(
-                            "room_code",
-                            ""
-                        )
+                    createdRoomId = response.optString("game_id", "")
+                    roomCode = response.optString("room_code", "")
 
                     startPolling(context)
-
                 }
 
             } catch (e: Exception) {
 
-                error =
-                    e.message ?: "Failed"
-
+                error = e.message ?: "Failed"
             }
 
             isLoading = false
@@ -172,59 +162,38 @@ class PrivateRoomViewModel : ViewModel() {
             isLoading = true
             error = ""
             shouldStartGame = false
+            navigationHandled = false
 
             try {
 
-                val manager =
-                    GameSessionManager(context)
+                val manager = GameSessionManager(context)
 
-                val response =
-                    manager.joinFriendRoom(code)
+                val response = manager.joinFriendRoom(code)
 
                 if (
                     response == null
                     || response.optString("status") != "success"
                 ) {
 
-                    error =
-                        response?.optString("message")
-                            ?: "Room not found or Full"
+                    error = response?.optString("message")
+                        ?: "Room not found or Full"
 
                 } else {
 
-                    createdRoomId =
-                        response.optString(
-                            "game_id",
-                            ""
-                        )
+                    createdRoomId = response.optString("game_id", "")
+                    roomCode = response.optString("room_code", code)
+                    betAmount = response.optInt("bet_amount", 0)
 
-                    roomCode =
-                        response.optString(
-                            "room_code",
-                            code
-                        )
-
-                    betAmount =
-                        response.optInt(
-                            "bet_amount",
-                            0
-                        )
-
-                    maxPlayers =
-                        if (response.optBoolean("is_two_player_mode", true))
-                            2
-                        else
-                            4
+                    maxPlayers = if (
+                        response.optBoolean("is_two_player_mode", true)
+                    ) 2 else 4
 
                     shouldStartGame = true
-
                 }
 
             } catch (e: Exception) {
 
-                error =
-                    e.message ?: "Failed"
-
+                error = e.message ?: "Failed"
             }
 
             isLoading = false
@@ -233,7 +202,7 @@ class PrivateRoomViewModel : ViewModel() {
 
 
     // --------------------------------------------------
-    // POLLING (host ke liye)
+    // POLLING (with timeout)
     // --------------------------------------------------
 
     private fun startPolling(
@@ -243,42 +212,49 @@ class PrivateRoomViewModel : ViewModel() {
 
         pollingJob = viewModelScope.launch {
 
-            val manager =
-                GameSessionManager(context)
+            val manager = GameSessionManager(context)
+
+            // ✅ FIX #2: Timeout after 5 minutes
+            val startTime = System.currentTimeMillis()
+            val timeoutMs = 5 * 60 * 1000L
 
             while (
                 createdRoomId.isNotBlank()
                 && !shouldStartGame
             ) {
 
+                if (
+                    System.currentTimeMillis() - startTime
+                    > timeoutMs
+                ) {
+
+                    error = "Room timed out. Please try again."
+                    stopPolling()
+                    return@launch
+                }
+
                 delay(2000)
 
                 try {
 
-                    val status =
-                        manager.getRoomStatus(
-                            createdRoomId
-                        )
+                    val status = manager.getRoomStatus(
+                        createdRoomId
+                    )
 
                     if (
                         status != null
                         && status.optString("status") == "success"
                     ) {
 
-                        val gameStatus =
-                            status.optString(
-                                "game_status",
-                                ""
-                            )
+                        val gameStatus = status.optString(
+                            "game_status", ""
+                        )
 
-                        val playerCount =
-                            status.optInt(
-                                "player_count",
-                                0
-                            )
+                        val playerCount = status.optInt(
+                            "player_count", 0
+                        )
 
-                        players =
-                            parsePlayers(status)
+                        players = parsePlayers(status)
 
                         if (
                             gameStatus == "ACTIVE"
@@ -286,14 +262,12 @@ class PrivateRoomViewModel : ViewModel() {
                         ) {
 
                             shouldStartGame = true
-
                         }
                     }
 
                 } catch (e: Exception) {
 
                     // Silent fail — keep polling
-
                 }
             }
         }
@@ -302,54 +276,24 @@ class PrivateRoomViewModel : ViewModel() {
 
     // --------------------------------------------------
     // PARSE PLAYERS
-    //
-    // Server now returns:
-    //
-    //   "players": [
-    //       {
-    //           "device_token": "...",
-    //           "color": "BLUE",
-    //           "name": "Player 1"
-    //       }
-    //   ]
-    //
-    // First item in the list is treated as the host.
     // --------------------------------------------------
 
     private fun parsePlayers(
         status: JSONObject
     ): List<LobbyPlayer> {
 
-        val result =
-            mutableListOf<LobbyPlayer>()
+        val result = mutableListOf<LobbyPlayer>()
 
-        val playersArray =
-            status.optJSONArray("players")
+        val playersArray = status.optJSONArray("players")
+            ?: return result
 
-        if (playersArray == null) {
-            return result
-        }
+        for (i in 0 until playersArray.length()) {
 
-        for (
-        i in 0
-                until playersArray.length()
-        ) {
+            val obj = playersArray.optJSONObject(i)
+                ?: continue
 
-            val obj =
-                playersArray.optJSONObject(i)
-                    ?: continue
-
-            val token =
-                obj.optString(
-                    "device_token",
-                    ""
-                )
-
-            val name =
-                obj.optString(
-                    "name",
-                    "Player"
-                )
+            val token = obj.optString("device_token", "")
+            val name = obj.optString("name", "Player")
 
             result.add(
                 LobbyPlayer(
@@ -394,30 +338,48 @@ fun PrivateRoomHostScreen(
 
     LaunchedEffect(Unit) {
         try {
-            val prefs = context.getSharedPreferences("ludo_session_prefs", Context.MODE_PRIVATE)
-            val savedName = prefs.getString("email_user_name", "Guest") ?: "Guest"
-            username = if (savedName.isNotBlank()) savedName else "Guest"
+            val prefs = context.getSharedPreferences(
+                "ludo_session_prefs",
+                Context.MODE_PRIVATE
+            )
+            val savedName = prefs.getString(
+                "email_user_name", "Guest"
+            ) ?: "Guest"
+
+            username = if (savedName.isNotBlank())
+                savedName else "Guest"
+
         } catch (e: Exception) {
             username = "Guest"
         }
     }
 
-    // Jab game ready ho jaye, MainActivityL start karo
-    LaunchedEffect(viewModel.shouldStartGame) {
-        if (viewModel.shouldStartGame && viewModel.createdRoomId.isNotBlank()) {
-            val token = manager.getOrCreateUserToken()
+    // ==========================================
+    // ✅ FIX #3: Navigation with flag
+    // ==========================================
 
-            val intent = Intent(context, MainActivityL::class.java).apply {
+    LaunchedEffect(viewModel.shouldStartGame) {
+
+        if (
+            viewModel.shouldStartGame
+            && viewModel.createdRoomId.isNotBlank()
+            && !viewModel.navigationHandled
+        ) {
+
+            viewModel.navigationHandled = true
+
+            val intent = Intent(
+                context,
+                MainActivityL::class.java
+            ).apply {
                 putExtra("GAME_MODE_2P", viewModel.maxPlayers == 2)
                 putExtra("GAME_ID", viewModel.createdRoomId)
                 putExtra("BET_AMOUNT", viewModel.betAmount)
             }
+
             context.startActivity(intent)
 
-            viewModel.shouldStartGame = false
             viewModel.stopPolling()
-
-            // Screen se nikal jao
             onBack()
         }
     }
@@ -434,7 +396,9 @@ fun PrivateRoomHostScreen(
             isLoading = viewModel.isLoading,
             error = viewModel.error,
             onBack = { showJoinScreen = false },
-            onJoin = { code -> viewModel.joinRoom(context, code) }
+            onJoin = { code ->
+                viewModel.joinRoom(context, code)
+            }
         )
     } else {
         CreateRoomScreen(
@@ -458,16 +422,44 @@ fun PrivateRoomHostScreen(
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, link)
                 }
-                context.startActivity(Intent.createChooser(intent, "Share Room"))
+                context.startActivity(
+                    Intent.createChooser(intent, "Share Room")
+                )
             },
-            onCopyLink = {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Room Code", viewModel.roomCode))
+            onCopyCode = {
+                val clipboard = context.getSystemService(
+                    Context.CLIPBOARD_SERVICE
+                ) as ClipboardManager
+
+                clipboard.setPrimaryClip(
+                    ClipData.newPlainText(
+                        "Room Code",
+                        viewModel.roomCode
+                    )
+                )
+
                 onCopyLink(viewModel.roomCode)
             },
-            onEnterRoom = {
-                // Auto navigate handled by LaunchedEffect
+            onCancelRoom = {
+                // ✅ FIX #8: Cancel room on back
+                val gameId = viewModel.createdRoomId
+
+                if (gameId.isNotBlank()) {
+                    kotlinx.coroutines.GlobalScope.launch {
+                        try {
+                            manager.cancelFriendRoom(gameId)
+                        } catch (e: Exception) {
+                            // Silent
+                        }
+                    }
+                }
+
+                viewModel.stopPolling()
+                viewModel.createdRoomId = ""
+                viewModel.roomCode = ""
+                viewModel.players = emptyList()
             },
+            onEnterRoom = {},
             onJoinRoomClick = { showJoinScreen = true }
         )
     }
@@ -491,16 +483,25 @@ fun CreateRoomScreen(
     onBack: () -> Unit = {},
     onCreateLink: (Int, Int) -> Unit = { _, _ -> },
     onShareLink: () -> Unit = {},
-    onCopyLink: () -> Unit = {},
+    onCopyCode: () -> Unit = {},
+    onCancelRoom: () -> Unit = {},
     onEnterRoom: () -> Unit = {},
     onJoinRoomClick: () -> Unit = {}
 ) {
-    val gradient = Brush.verticalGradient(colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000)))
+
+    val gradient = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF0A0A0A),
+            Color(0xFF1A0000)
+        )
+    )
+
     var selectedBet by remember { mutableStateOf(1000) }
     var roomCreated by remember { mutableStateOf(false) }
     var copied by remember { mutableStateOf(false) }
     var showPlayerPopup by remember { mutableStateOf(false) }
     var selectedPlayers by remember { mutableStateOf(2) }
+
     val betOptions = listOf(500, 1000, 2000, 5000, 10000)
 
     LaunchedEffect(roomCode) {
@@ -512,6 +513,17 @@ fun CreateRoomScreen(
             delay(2000)
             copied = false
         }
+    }
+
+    // ==========================================
+    // ✅ FIX #1 + #8: BackHandler
+    // ==========================================
+
+    BackHandler {
+        if (roomCreated && createdRoomId.isNotBlank()) {
+            onCancelRoom()
+        }
+        onBack()
     }
 
     Scaffold(
@@ -531,18 +543,37 @@ fun CreateRoomScreen(
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF2B0000))
-                            .border(2.dp, Color(0xFFFFD700), CircleShape)
-                            .clickable { onBack() },
+                            .border(
+                                2.dp,
+                                Color(0xFFFFD700),
+                                CircleShape
+                            )
+                            .clickable {
+                                if (
+                                    roomCreated
+                                    && createdRoomId.isNotBlank()
+                                ) {
+                                    onCancelRoom()
+                                }
+                                onBack()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color(0xFFFFD700))
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFFFFD700)
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         },
         containerColor = Color.Transparent
     ) { paddingValues ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -551,20 +582,32 @@ fun CreateRoomScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Spacer(Modifier.height(24.dp))
+
+            // ==========================================
+            // HEADER CARD
+            // ==========================================
 
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(16.dp, RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Transparent
+                ),
                 border = BorderStroke(2.5.dp, Color(0xFFFFD700))
             ) {
                 Box(
                     modifier = Modifier
                         .background(
-                            Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A))),
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color(0xFF1A0000),
+                                    Color(0xFF0A0A0A)
+                                )
+                            ),
                             RoundedCornerShape(24.dp)
                         )
                         .padding(24.dp)
@@ -573,11 +616,20 @@ fun CreateRoomScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
+
                         Box(
                             modifier = Modifier
                                 .size(70.dp)
                                 .clip(CircleShape)
-                                .background(Brush.radialGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))), CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(
+                                            Color(0xFFFFD700),
+                                            Color(0xFFFFA500)
+                                        )
+                                    ),
+                                    CircleShape
+                                )
                                 .padding(3.dp)
                         ) {
                             Box(
@@ -587,20 +639,56 @@ fun CreateRoomScreen(
                                     .background(Color(0xFF2B0000)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Group, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(32.dp))
+                                Icon(
+                                    Icons.Default.Group,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFFD700),
+                                    modifier = Modifier.size(32.dp)
+                                )
                             }
                         }
+
                         Spacer(Modifier.height(12.dp))
-                        Text("Playing with", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
-                        Text(friendName, color = Color(0xFFFFD700), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+
+                        Text(
+                            "Playing with",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 13.sp
+                        )
+
+                        Text(
+                            friendName,
+                            color = Color(0xFFFFD700),
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
                         Spacer(Modifier.height(8.dp))
+
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))))
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color(0xFFFFD700),
+                                            Color(0xFFFFA500)
+                                        )
+                                    )
+                                )
+                                .padding(
+                                    horizontal = 12.dp,
+                                    vertical = 4.dp
+                                )
                         ) {
-                            Text("Min 2 • Max 4 Players", color = Color(0xFF1A0000), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(
+                                "Min 2 • Max 4 Players",
+                                color = Color(0xFF1A0000),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         }
                     }
                 }
@@ -608,67 +696,152 @@ fun CreateRoomScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            AnimatedVisibility(visible = !roomCreated, enter = fadeIn() + scaleIn(), exit = fadeOut()) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Choose Bet Amount", color = Color(0xFFFFD700), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            // ==========================================
+            // PRE-ROOM UI
+            // ==========================================
+
+            AnimatedVisibility(
+                visible = !roomCreated,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut()
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    Text(
+                        "Choose Bet Amount",
+                        color = Color(0xFFFFD700),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
                     Spacer(Modifier.height(20.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+
+                    // ✅ FIX #4: Horizontal scroll for bet chips
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
                         betOptions.forEach { bet ->
                             RoomBetChip(
                                 bet = bet,
                                 isSelected = selectedBet == bet,
-                                modifier = Modifier.weight(1f),
                                 onClick = { selectedBet = bet }
                             )
                         }
                     }
+
                     Spacer(Modifier.height(48.dp))
+
                     RoomPremiumButton(
-                        text = if (isLoading) "Creating..." else "Create Room - $selectedBet Coins",
-                        gradient = Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))),
+                        text = if (isLoading)
+                            "Creating..."
+                        else
+                            "Create Room - $selectedBet Coins",
+                        gradient = Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFF8B0000),
+                                Color(0xFFD32F2F)
+                            )
+                        ),
                         onClick = { showPlayerPopup = true }
                     )
+
                     Spacer(Modifier.height(16.dp))
+
                     RoomPremiumButton(
                         text = "Join Room",
-                        gradient = Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))),
+                        gradient = Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFFFFD700),
+                                Color(0xFFFFA500)
+                            )
+                        ),
                         textColor = Color(0xFF1A0000),
                         onClick = onJoinRoomClick
                     )
+
                     if (error.isNotEmpty()) {
                         Spacer(Modifier.height(12.dp))
-                        Text(error, color = Color.Red, fontSize = 12.sp)
+                        Text(
+                            error,
+                            color = Color.Red,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             }
 
-            AnimatedVisibility(visible = roomCreated, enter = fadeIn() + scaleIn(), exit = fadeOut()) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // ==========================================
+            // POST-ROOM UI (Room Created)
+            // ==========================================
+
+            AnimatedVisibility(
+                visible = roomCreated,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut()
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Transparent
+                        )
                     ) {
                         Box(
                             modifier = Modifier
                                 .background(
-                                    Brush.horizontalGradient(listOf(Color(0xFF8B0000), Color(0xFFD32F2F))),
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color(0xFF8B0000),
+                                            Color(0xFFD32F2F)
+                                        )
+                                    ),
                                     RoundedCornerShape(24.dp)
                                 )
-                                .border(2.5.dp, Color(0xFFFFD700), RoundedCornerShape(24.dp))
+                                .border(
+                                    2.5.dp,
+                                    Color(0xFFFFD700),
+                                    RoundedCornerShape(24.dp)
+                                )
                                 .padding(28.dp)
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("🎉 Room Created!", color = Color(0xFFFFD700), fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+
+                                Text(
+                                    "🎉 Room Created!",
+                                    color = Color(0xFFFFD700),
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+
                                 Spacer(Modifier.height(8.dp))
 
-                                Text("Bet: $selectedBet coins | Players: $maxPlayers", color = Color.White, fontSize = 16.sp)
+                                Text(
+                                    "Bet: $selectedBet coins | Players: $maxPlayers",
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+
                                 Spacer(Modifier.height(12.dp))
 
-                                Text("Room Code", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                                Text(
+                                    "Room Code",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 12.sp
+                                )
+
                                 Text(
                                     roomCode,
                                     color = Color(0xFFFFD700),
@@ -678,11 +851,23 @@ fun CreateRoomScreen(
                                 )
 
                                 Spacer(Modifier.height(8.dp))
-                                Text(
-                                    "Waiting for players to join... (${players.size}/$maxPlayers)",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    fontSize = 13.sp
-                                )
+
+                                // ✅ FIX #5: Polling indicator
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color(0xFFFFD700),
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Waiting for players... ${players.size}/$maxPlayers",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontSize = 13.sp
+                                    )
+                                }
 
                                 if (players.isNotEmpty()) {
                                     Spacer(Modifier.height(16.dp))
@@ -704,7 +889,9 @@ fun CreateRoomScreen(
                                                 player.name,
                                                 color = Color.White,
                                                 fontSize = 14.sp,
-                                                modifier = Modifier.weight(1f)
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             if (player.isCreator) {
                                                 Text(
@@ -723,45 +910,86 @@ fun CreateRoomScreen(
 
                     Spacer(Modifier.height(28.dp))
 
+                    // ==========================================
+                    // SHARE CODE CARD
+                    // ==========================================
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Transparent
+                        ),
                         border = BorderStroke(2.dp, Color(0xFFFFD700))
                     ) {
                         Box(
                             modifier = Modifier
                                 .background(
-                                    Brush.verticalGradient(listOf(Color(0xFF1A0000), Color(0xFF0A0A0A))),
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color(0xFF1A0000),
+                                            Color(0xFF0A0A0A)
+                                        )
+                                    ),
                                     RoundedCornerShape(20.dp)
                                 )
                                 .padding(20.dp)
                         ) {
                             Column {
-                                Text("Share Code", color = Color(0xFFFFD700), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Share Code",
+                                    color = Color(0xFFFFD700),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                                 Spacer(Modifier.height(12.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Text(roomCode, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        roomCode,
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                     Spacer(Modifier.width(12.dp))
                                     Box(
                                         modifier = Modifier
                                             .clip(CircleShape)
-                                            .background(if (copied) Color(0xFFD32F2F) else Color(0xFFFFD700))
+                                            .background(
+                                                if (copied)
+                                                    Color(0xFFD32F2F)
+                                                else
+                                                    Color(0xFFFFD700)
+                                            )
                                             .clickable {
-                                                onCopyLink()
+                                                onCopyCode()
                                                 copied = true
                                             }
                                             .padding(10.dp)
                                     ) {
                                         Icon(
-                                            if (copied) Icons.Default.Done else Icons.Default.ContentCopy,
+                                            if (copied)
+                                                Icons.Default.Done
+                                            else
+                                                Icons.Default.ContentCopy,
                                             contentDescription = "Copy",
                                             tint = Color(0xFF1A0000),
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
                                 }
-                                if (copied) Text("Copied!", color = Color(0xFFD32F2F), fontSize = 11.sp)
+                                if (copied) {
+                                    Text(
+                                        "Copied!",
+                                        color = Color(0xFFD32F2F),
+                                        fontSize = 11.sp
+                                    )
+                                }
                             }
                         }
                     }
@@ -771,7 +999,12 @@ fun CreateRoomScreen(
                     RoomPremiumButton(
                         text = "Share Room Code",
                         icon = Icons.Default.Share,
-                        gradient = Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))),
+                        gradient = Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFFFFD700),
+                                Color(0xFFFFA500)
+                            )
+                        ),
                         textColor = Color(0xFF1A0000),
                         onClick = onShareLink
                     )
@@ -783,12 +1016,34 @@ fun CreateRoomScreen(
                         color = Color.White.copy(alpha = 0.6f),
                         fontSize = 12.sp
                     )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // ✅ FIX #8: Cancel Room button
+                    RoomPremiumButton(
+                        text = "Cancel Room",
+                        gradient = Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFF2B0000),
+                                Color(0xFF4A0000)
+                            )
+                        ),
+                        textColor = Color(0xFFFFD700),
+                        onClick = {
+                            onCancelRoom()
+                            onBack()
+                        }
+                    )
                 }
             }
 
             Spacer(Modifier.weight(1f))
         }
     }
+
+    // ==========================================
+    // PLAYER COUNT POPUP
+    // ==========================================
 
     if (showPlayerPopup) {
         AlertDialog(
@@ -806,7 +1061,10 @@ fun CreateRoomScreen(
                 )
             },
             text = {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -814,17 +1072,49 @@ fun CreateRoomScreen(
                             .clip(RoundedCornerShape(18.dp))
                             .background(
                                 if (selectedPlayers == 2)
-                                    Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500)))
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color(0xFFFFD700),
+                                            Color(0xFFFFA500)
+                                        )
+                                    )
                                 else
-                                    Brush.horizontalGradient(listOf(Color(0xFF2B0000), Color(0xFF2B0000)))
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color(0xFF2B0000),
+                                            Color(0xFF2B0000)
+                                        )
+                                    )
                             )
-                            .border(2.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp))
+                            .border(
+                                2.dp,
+                                Color(0xFFFFD700),
+                                RoundedCornerShape(18.dp)
+                            )
                             .clickable { selectedPlayers = 2 },
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("2", color = if (selectedPlayers == 2) Color(0xFF1A0000) else Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                            Text("Players", color = if (selectedPlayers == 2) Color(0xFF1A0000) else Color(0xFFFFD700), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "2",
+                                color = if (selectedPlayers == 2)
+                                    Color(0xFF1A0000)
+                                else
+                                    Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "Players",
+                                color = if (selectedPlayers == 2)
+                                    Color(0xFF1A0000)
+                                else
+                                    Color(0xFFFFD700),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                     Box(
@@ -834,17 +1124,49 @@ fun CreateRoomScreen(
                             .clip(RoundedCornerShape(18.dp))
                             .background(
                                 if (selectedPlayers == 4)
-                                    Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500)))
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color(0xFFFFD700),
+                                            Color(0xFFFFA500)
+                                        )
+                                    )
                                 else
-                                    Brush.horizontalGradient(listOf(Color(0xFF2B0000), Color(0xFF2B0000)))
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color(0xFF2B0000),
+                                            Color(0xFF2B0000)
+                                        )
+                                    )
                             )
-                            .border(2.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp))
+                            .border(
+                                2.dp,
+                                Color(0xFFFFD700),
+                                RoundedCornerShape(18.dp)
+                            )
                             .clickable { selectedPlayers = 4 },
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("4", color = if (selectedPlayers == 4) Color(0xFF1A0000) else Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                            Text("Players", color = if (selectedPlayers == 4) Color(0xFF1A0000) else Color(0xFFFFD700), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "4",
+                                color = if (selectedPlayers == 4)
+                                    Color(0xFF1A0000)
+                                else
+                                    Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                "Players",
+                                color = if (selectedPlayers == 4)
+                                    Color(0xFF1A0000)
+                                else
+                                    Color(0xFFFFD700),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -854,12 +1176,19 @@ fun CreateRoomScreen(
                     showPlayerPopup = false
                     onCreateLink(selectedBet, selectedPlayers)
                 }) {
-                    Text("Create Now", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold)
+                    Text(
+                        "Create Now",
+                        color = Color(0xFFFFD700),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPlayerPopup = false }) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                    Text(
+                        "Cancel",
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
                 }
             }
         )
@@ -880,26 +1209,51 @@ fun JoinRoomScreen(
     onJoin: (String) -> Unit = {}
 ) {
     var roomCode by remember { mutableStateOf("") }
-    val gradient = Brush.verticalGradient(listOf(Color(0xFF0A0A0A), Color(0xFF1A0000)))
+    val gradient = Brush.verticalGradient(
+        listOf(
+            Color(0xFF0A0A0A),
+            Color(0xFF1A0000)
+        )
+    )
+
+    // ✅ FIX #1: BackHandler for join screen
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Join Private Room", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color(0xFFFFD700)) },
+                title = {
+                    Text(
+                        "Join Private Room",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        color = Color(0xFFFFD700)
+                    )
+                },
                 navigationIcon = {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF2B0000))
-                            .border(2.dp, Color(0xFFFFD700), CircleShape)
+                            .border(
+                                2.dp,
+                                Color(0xFFFFD700),
+                                CircleShape
+                            )
                             .clickable { onBack() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color(0xFFFFD700))
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFFFFD700)
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         },
         containerColor = Color.Transparent
@@ -912,12 +1266,21 @@ fun JoinRoomScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
             Spacer(Modifier.height(32.dp))
+
             Box(
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(Brush.radialGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))))
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                Color(0xFFFFD700),
+                                Color(0xFFFFA500)
+                            )
+                        )
+                    )
                     .padding(3.dp)
             ) {
                 Box(
@@ -927,19 +1290,52 @@ fun JoinRoomScreen(
                         .background(Color(0xFF2B0000)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Login, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(48.dp))
+                    Icon(
+                        Icons.Default.Login,
+                        contentDescription = null,
+                        tint = Color(0xFFFFD700),
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
             }
+
             Spacer(Modifier.height(24.dp))
-            Text("Enter Room Code", color = Color(0xFFFFD700), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Text("Type the 6-character code shared by your friend", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, textAlign = TextAlign.Center)
+
+            Text(
+                "Enter Room Code",
+                color = Color(0xFFFFD700),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                "Type the 6-character code shared by your friend",
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+
             Spacer(Modifier.height(32.dp))
 
             OutlinedTextField(
                 value = roomCode,
-                onValueChange = { roomCode = it.uppercase().filter { c -> c.isLetterOrDigit() }.take(6) },
-                label = { Text("Room Code", color = Color.White.copy(alpha = 0.6f)) },
-                placeholder = { Text("K9X3MP", color = Color.White.copy(alpha = 0.3f)) },
+                onValueChange = {
+                    roomCode = it.uppercase()
+                        .filter { c -> c.isLetterOrDigit() }
+                        .take(6)
+                },
+                label = {
+                    Text(
+                        "Room Code",
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                },
+                placeholder = {
+                    Text(
+                        "K9X3MP",
+                        color = Color.White.copy(alpha = 0.3f)
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -955,16 +1351,30 @@ fun JoinRoomScreen(
             )
 
             Spacer(Modifier.height(12.dp))
+
             if (error.isNotEmpty()) {
-                Text(error, color = Color.Red, fontSize = 13.sp)
+                Text(
+                    error,
+                    color = Color.Red,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
+                )
             }
+
             Spacer(Modifier.height(20.dp))
 
             RoomPremiumButton(
                 text = if (isLoading) "Joining..." else "Join Room Now",
-                gradient = Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500))),
+                gradient = Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFFFFD700),
+                        Color(0xFFFFA500)
+                    )
+                ),
                 textColor = Color(0xFF1A0000),
-                onClick = { if (roomCode.length == 6) onJoin(roomCode) }
+                onClick = {
+                    if (roomCode.length == 6) onJoin(roomCode)
+                }
             )
         }
     }
@@ -976,33 +1386,78 @@ fun JoinRoomScreen(
 // ==========================================================
 
 @Composable
-fun RoomBetChip(bet: Int, isSelected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun RoomBetChip(
+    bet: Int,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(targetValue = if (isPressed) 0.95f else 1f, animationSpec = tween(100))
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = tween(100),
+        label = "betChipScale"
+    )
 
     Box(
         modifier = modifier
+            .width(80.dp)
             .height(70.dp)
             .scale(scale)
             .clip(RoundedCornerShape(18.dp))
             .background(
                 if (isSelected)
-                    Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFFA500)))
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color(0xFFFFD700),
+                            Color(0xFFFFA500)
+                        )
+                    )
                 else
-                    Brush.horizontalGradient(listOf(Color(0xFF2B0000), Color(0xFF2B0000))),
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color(0xFF2B0000),
+                            Color(0xFF2B0000)
+                        )
+                    ),
                 RoundedCornerShape(18.dp)
             )
-            .border(if (isSelected) 2.5.dp else 2.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp))
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            .border(
+                if (isSelected) 2.5.dp else 2.dp,
+                Color(0xFFFFD700),
+                RoundedCornerShape(18.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$bet", color = if (isSelected) Color(0xFF1A0000) else Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-            Text("coins", color = if (isSelected) Color(0xFF1A0000).copy(alpha = 0.7f) else Color.White.copy(alpha = 0.6f), fontSize = 10.sp)
+            Text(
+                "$bet",
+                color = if (isSelected)
+                    Color(0xFF1A0000)
+                else
+                    Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+            Text(
+                "coins",
+                color = if (isSelected)
+                    Color(0xFF1A0000).copy(alpha = 0.7f)
+                else
+                    Color.White.copy(alpha = 0.6f),
+                fontSize = 10.sp
+            )
         }
     }
 }
+
 
 @Composable
 fun RoomPremiumButton(
@@ -1014,7 +1469,11 @@ fun RoomPremiumButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(targetValue = if (isPressed) 0.97f else 1f, animationSpec = tween(100))
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = tween(100),
+        label = "buttonScale"
+    )
 
     Box(
         modifier = Modifier
@@ -1023,19 +1482,40 @@ fun RoomPremiumButton(
             .scale(scale)
             .clip(RoundedCornerShape(18.dp))
             .background(gradient, RoundedCornerShape(18.dp))
-            .border(2.5.dp, Color(0xFFFFD700), RoundedCornerShape(18.dp))
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            .border(
+                2.5.dp,
+                Color(0xFFFFD700),
+                RoundedCornerShape(18.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
-                Icon(icon, contentDescription = null, tint = textColor, modifier = Modifier.size(22.dp))
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(22.dp)
+                )
                 Spacer(Modifier.width(10.dp))
             }
-            Text(text, color = textColor, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+            Text(
+                text,
+                color = textColor,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

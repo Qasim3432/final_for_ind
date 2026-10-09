@@ -212,7 +212,6 @@ fun AppNavigation(
                         restoreState = true
                     }
                 },
-                // ✅ FIXED: Invite Friends now opens Referral Dashboard
                 onNavigateToInvite = {
                     navController.navigate("referral_dashboard") {
                         popUpTo("home") { saveState = true }
@@ -588,6 +587,7 @@ fun AppNavigation(
 
             WithdrawScreen(
                 currentBalance = balanceAmount,
+                sessionManager = sessionManager,
                 onBack = { navController.popBackStack() },
                 onWithdrawSubmitted = {
                         amount, method, title, number ->
@@ -706,6 +706,17 @@ fun AppNavigation(
                                 navController.navigate(
                                     "pin_setup"
                                 )
+                            } else if (
+                                errorCode == "LOCATION_REQUIRED"
+                            ) {
+                                showPinDialog = false
+                                android.widget.Toast
+                                    .makeText(
+                                        navController.context,
+                                        "Location permission required. Please grant it.",
+                                        android.widget.Toast
+                                            .LENGTH_LONG
+                                    ).show()
                             } else {
                                 pinError = if (
                                     errorMsg.isNotEmpty()

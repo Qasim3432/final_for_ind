@@ -351,11 +351,36 @@ class GameSocket(
 
 
     // =========================================================
-    // STOP RECONNECT
+    // SKIP TURN  ← NEW
     //
-    // Call this before disconnect when the user explicitly
-    // quits (back button, surrender). Prevents auto-reconnect
-    // from kicking in during the shutdown sequence.
+    // Called when the player's turn times out (40s of no action).
+    // Asks the server to advance the turn to the next player.
+    // =========================================================
+
+    fun skipTurn() {
+
+        val payload =
+            JSONObject().apply {
+
+                put(
+                    "action",
+                    "skip_turn"
+                )
+            }
+
+        Log.d(
+            "GAME_SOCKET",
+            "Sending skip_turn: $payload"
+        )
+
+        socket?.send(
+            payload.toString()
+        )
+    }
+
+
+    // =========================================================
+    // STOP RECONNECT
     // =========================================================
 
     fun stopReconnect() {

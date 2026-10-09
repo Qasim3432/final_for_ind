@@ -40,6 +40,22 @@ data class GameHistoryEntry(
 )
 
 
+// ==========================================================
+// PREMIUM COLOR PALETTE
+// ==========================================================
+
+private val BgScreenTop = Color(0xFF0A0505)
+private val BgScreenBottom = Color(0xFF150808)
+private val CardPrimary = Color(0xFF1A0A0A)
+private val CardDeep = Color(0xFF0F0707)
+private val CardSecondary = Color(0xFF251010)
+private val GoldPure = Color(0xFFFFD700)
+private val GoldRich = Color(0xFFD4AF37)
+private val EmeraldBright = Color(0xFF43A047)
+private val RedBright = Color(0xFFE53935)
+private val OrangeBright = Color(0xFFFFA500)
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameHistoryScreen(
@@ -48,14 +64,9 @@ fun GameHistoryScreen(
     onBack: () -> Unit
 ) {
 
-    val gradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF0A0A0A),
-            Color(0xFF1A0000)
-        )
+    val screenGradient = Brush.verticalGradient(
+        colors = listOf(BgScreenTop, BgScreenBottom)
     )
-
-    val gold = Color(0xFFFFD700)
 
     val history = remember(historyJson) {
 
@@ -64,11 +75,8 @@ fun GameHistoryScreen(
         val arr = historyJson?.optJSONArray("history")
 
         if (arr != null) {
-
             for (i in 0 until arr.length()) {
-
                 val o = arr.optJSONObject(i) ?: continue
-
                 list.add(
                     GameHistoryEntry(
                         gameId = o.optString("game_id", ""),
@@ -86,20 +94,12 @@ fun GameHistoryScreen(
         list
     }
 
-    val stats =
-        historyJson?.optJSONObject("stats")
+    val stats = historyJson?.optJSONObject("stats")
 
-    val totalGames =
-        stats?.optInt("total_games", 0) ?: 0
-
-    val totalWins =
-        stats?.optInt("total_wins", 0) ?: 0
-
-    val totalLosses =
-        stats?.optInt("total_losses", 0) ?: 0
-
-    val winRate =
-        stats?.optDouble("win_rate", 0.0) ?: 0.0
+    val totalGames = stats?.optInt("total_games", 0) ?: 0
+    val totalWins = stats?.optInt("total_wins", 0) ?: 0
+    val totalLosses = stats?.optInt("total_losses", 0) ?: 0
+    val winRate = stats?.optDouble("win_rate", 0.0) ?: 0.0
 
     Scaffold(
         topBar = {
@@ -109,7 +109,7 @@ fun GameHistoryScreen(
                         "Game History",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = gold
+                        color = GoldPure
                     )
                 },
                 navigationIcon = {
@@ -117,7 +117,7 @@ fun GameHistoryScreen(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = gold
+                            tint = GoldPure
                         )
                     }
                 },
@@ -132,7 +132,7 @@ fun GameHistoryScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient)
+                .background(screenGradient)
         ) {
 
             Column(
@@ -141,31 +141,27 @@ fun GameHistoryScreen(
                     .padding(padding)
             ) {
 
+                // ==========================================
+                // STATS CARD
+                // ==========================================
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color.Transparent
+                        containerColor = CardPrimary
                     ),
                     border = androidx.compose.foundation.BorderStroke(
-                        2.5.dp,
-                        gold
+                        2.dp,
+                        GoldRich
                     )
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xFF1A0000),
-                                        Color(0xFF0A0A0A)
-                                    )
-                                )
-                            )
-                            .padding(16.dp),
+                            .padding(18.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
 
@@ -175,22 +171,28 @@ fun GameHistoryScreen(
                             color = Color.White
                         )
 
+                        DividerVertical()
+
                         StatItem(
                             label = "Wins",
                             value = "$totalWins",
-                            color = Color(0xFF4CAF50)
+                            color = EmeraldBright
                         )
+
+                        DividerVertical()
 
                         StatItem(
                             label = "Losses",
                             value = "$totalLosses",
-                            color = Color(0xFFE53935)
+                            color = RedBright
                         )
+
+                        DividerVertical()
 
                         StatItem(
                             label = "Win %",
                             value = "$winRate%",
-                            color = gold
+                            color = GoldPure
                         )
                     }
                 }
@@ -198,20 +200,15 @@ fun GameHistoryScreen(
                 Spacer(Modifier.height(16.dp))
 
                 if (isLoading) {
-
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = gold)
+                        CircularProgressIndicator(color = GoldPure)
                     }
-
                 } else if (history.isEmpty()) {
-
                     EmptyState()
-
                 } else {
-
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
@@ -220,9 +217,8 @@ fun GameHistoryScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-
                         items(history) { entry ->
-                            HistoryCard(entry = entry, gold = gold)
+                            HistoryCard(entry = entry)
                         }
                     }
                 }
@@ -233,44 +229,57 @@ fun GameHistoryScreen(
 
 
 @Composable
+fun DividerVertical() {
+    Box(
+        Modifier
+            .width(1.dp)
+            .height(30.dp)
+            .background(Color.White.copy(alpha = 0.1f))
+    )
+}
+
+
+@Composable
 fun StatItem(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
             color = color,
-            fontSize = 22.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.ExtraBold
         )
+        Spacer(Modifier.height(2.dp))
         Text(
             text = label,
-            color = Color.White.copy(alpha = 0.6f),
+            color = Color.White.copy(alpha = 0.5f),
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.5.sp
         )
     }
 }
 
 
 @Composable
-fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
+fun HistoryCard(entry: GameHistoryEntry) {
 
     val (icon, resultColor, resultText) = when (entry.result) {
 
         "WON" -> Triple(
             Icons.Default.EmojiEvents,
-            Color(0xFF4CAF50),
+            EmeraldBright,
             "WON"
         )
 
         "LOST" -> Triple(
             Icons.Default.SentimentDissatisfied,
-            Color(0xFFE53935),
+            RedBright,
             "LOST"
         )
 
         "CANCELLED" -> Triple(
             Icons.Default.Cancel,
-            Color(0xFFFFA500),
+            OrangeBright,
             "CANCELLED"
         )
 
@@ -282,8 +291,8 @@ fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
     }
 
     val coinsColor =
-        if (entry.coinsChange > 0) Color(0xFF4CAF50)
-        else if (entry.coinsChange < 0) Color(0xFFE53935)
+        if (entry.coinsChange > 0) EmeraldBright
+        else if (entry.coinsChange < 0) RedBright
         else Color.White.copy(alpha = 0.6f)
 
     val coinsText =
@@ -293,7 +302,9 @@ fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A0000)),
+        colors = CardDefaults.cardColors(
+            containerColor = CardPrimary
+        ),
         border = androidx.compose.foundation.BorderStroke(
             1.5.dp,
             resultColor.copy(alpha = 0.5f)
@@ -306,11 +317,12 @@ fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
             verticalAlignment = Alignment.CenterVertically
         ) {
 
+            // Icon circle
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(46.dp)
                     .clip(CircleShape)
-                    .background(resultColor.copy(alpha = 0.15f))
+                    .background(CardSecondary)
                     .border(1.5.dp, resultColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -332,7 +344,8 @@ fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
                         text = resultText,
                         color = resultColor,
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.5.sp
                     )
 
                     Spacer(Modifier.width(8.dp))
@@ -340,19 +353,19 @@ fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(gold.copy(alpha = 0.15f))
+                            .background(GoldPure)
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = entry.gameMode,
-                            color = gold,
+                            color = Color(0xFF1A0A0A),
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold
                         )
                     }
                 }
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(5.dp))
 
                 Text(
                     text = "Bet: ${entry.betAmount}  •  " +
@@ -366,7 +379,7 @@ fun HistoryCard(entry: GameHistoryEntry, gold: Color) {
 
                 Text(
                     text = entry.playedAt,
-                    color = Color.White.copy(alpha = 0.4f),
+                    color = Color.White.copy(alpha = 0.35f),
                     fontSize = 10.sp
                 )
             }
@@ -396,7 +409,7 @@ fun EmptyState() {
         Icon(
             Icons.Default.History,
             contentDescription = null,
-            tint = Color(0xFFFFD700).copy(alpha = 0.3f),
+            tint = GoldPure.copy(alpha = 0.3f),
             modifier = Modifier.size(80.dp)
         )
 

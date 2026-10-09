@@ -26,10 +26,6 @@ object SoundManager {
     private var appContext: Context? = null
 
 
-    // =========================================================
-    // INIT
-    // =========================================================
-
     fun init(context: Context) {
 
         if (initialized) return
@@ -42,7 +38,7 @@ object SoundManager {
             .build()
 
         soundPool = SoundPool.Builder()
-            .setMaxStreams(6)
+            .setMaxStreams(8)
             .setAudioAttributes(attrs)
             .build()
 
@@ -70,10 +66,6 @@ object SoundManager {
     }
 
 
-    // =========================================================
-    // TOGGLE CHECK
-    // =========================================================
-
     private fun isEnabled(): Boolean {
 
         val ctx = appContext ?: return false
@@ -84,10 +76,6 @@ object SoundManager {
         ).getBoolean("sound_enabled", true)
     }
 
-
-    // =========================================================
-    // PLAY
-    // =========================================================
 
     private fun play(soundId: Int, volume: Float = 1f) {
 
@@ -121,6 +109,9 @@ object SoundManager {
 
     fun playTokenMove() = play(tokenMoveId, 0.8f)
 
+    // ✅ NEW: softer sound for each hop during move
+    fun playTokenHop() = play(tokenMoveId, 0.55f)
+
     fun playTokenKick() = play(tokenKickId, 1f)
 
     fun playWin() = play(winId, 1f)
@@ -133,10 +124,6 @@ object SoundManager {
 
     fun playCoinReward() = play(coinRewardId, 1f)
 
-
-    // =========================================================
-    // RELEASE
-    // =========================================================
 
     fun release() {
 

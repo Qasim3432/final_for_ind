@@ -1,5 +1,13 @@
 package com.example.final_for_ind.screens.deposit
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
@@ -30,7 +38,248 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.final_for_ind.network.GameSessionManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+
+// ==========================================================
+// COPY TO CLIPBOARD HELPER
+// ==========================================================
+
+fun copyToClipboard(
+    context: Context,
+    label: String,
+    value: String
+): Boolean {
+
+    return try {
+
+        val clipboard = context
+            .getSystemService(Context.CLIPBOARD_SERVICE)
+                as ClipboardManager
+
+        val clip = ClipData.newPlainText(label, value)
+
+        clipboard.setPrimaryClip(clip)
+
+        Log.d("CLIPBOARD", "Copied $label: $value")
+
+        true
+
+    } catch (e: Exception) {
+
+        Log.e("CLIPBOARD", "Copy failed", e)
+        false
+    }
+}
+
+
+// ==========================================================
+// PAYMENT APP LAUNCHER
+//
+// 1. Copies account number to clipboard
+// 2. Opens the payment app
+// 3. Falls back to Play Store if app not installed
+// ==========================================================
+
+fun openPaymentApp(
+    context: Context,
+    provider: String,
+    accountNumber: String? = null
+) {
+
+    // ======================================================
+    // Step 1: Copy account number to clipboard
+    // ======================================================
+
+    if (!accountNumber.isNullOrBlank()) {
+
+        copyToClipboard(
+            context = context,
+            label = "$provider Account Number",
+            value = accountNumber
+        )
+    }
+
+    // ======================================================
+    // Step 2: Resolve package name
+    // ======================================================
+
+    val packageName: String? = when (provider) {
+        "JAZZCASH" -> "com.techlogix.mobilinkcustomer"
+        "EASYPAISA" -> "pk.com.telenor.phoenix"
+        "BINANCE" -> "com.binance.dev"
+        else -> null
+    }
+
+    if (packageName == null) return
+
+    Log.d("PAYMENT_APP", "Trying to open: $packageName")
+
+    // ======================================================
+    // Helper to show "copied" toast
+    // ======================================================
+
+    fun showCopiedToast() {
+
+        if (accountNumber.isNullOrBlank()) return
+
+        // On Android 13+, system shows its own "Copied" overlay
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return
+        }
+
+        Toast.makeText(
+            context,
+            "📋 Account number copied. Paste it in the app.",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    // ======================================================
+    // Attempt 1: Direct launch intent
+    // ======================================================
+
+    try {
+
+        val launchIntent = context.packageManager
+            .getLaunchIntentForPackage(packageName)
+
+        if (launchIntent != null) {
+
+            launchIntent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+            )
+
+            context.startActivity(launchIntent)
+
+            Log.d(
+                "PAYMENT_APP",
+                "Launched (intent): $packageName"
+            )
+
+            showCopiedToast()
+
+            return
+        }
+
+    } catch (e: Exception) {
+
+        Log.e("PAYMENT_APP", "Attempt 1 failed", e)
+    }
+
+    // ======================================================
+    // Attempt 2: Query launcher activities
+    // ======================================================
+
+    try {
+
+        val queryIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            setPackage(packageName)
+        }
+
+        val resolveInfos = context.packageManager
+            .queryIntentActivities(queryIntent, 0)
+
+        if (resolveInfos.isNotEmpty()) {
+
+            val activityInfo = resolveInfos[0].activityInfo
+
+            val componentIntent = Intent(
+                Intent.ACTION_MAIN
+            ).apply {
+
+                addCategory(Intent.CATEGORY_LAUNCHER)
+
+                component = ComponentName(
+                    activityInfo.packageName,
+                    activityInfo.name
+                )
+
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            context.startActivity(componentIntent)
+
+            Log.d(
+                "PAYMENT_APP",
+                "Launched (query): $packageName"
+            )
+
+            showCopiedToast()
+
+            return
+        }
+
+    } catch (e: Exception) {
+
+        Log.e("PAYMENT_APP", "Attempt 2 failed", e)
+    }
+
+    // ======================================================
+    // Attempt 3: Play Store app
+    // ======================================================
+
+    try {
+
+        val marketIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("market://details?id=$packageName")
+        )
+
+        marketIntent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK
+        )
+
+        context.startActivity(marketIntent)
+
+        Log.d(
+            "PAYMENT_APP",
+            "Opened Play Store: $packageName"
+        )
+
+        return
+
+    } catch (e: ActivityNotFoundException) {
+
+        Log.d("PAYMENT_APP", "Play Store not found")
+
+    } catch (e: Exception) {
+
+        Log.e("PAYMENT_APP", "Play Store failed", e)
+    }
+
+    // ======================================================
+    // Attempt 4: Browser fallback
+    // ======================================================
+
+    try {
+
+        val webIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(
+                "https://play.google.com/store/apps/details?id=$packageName"
+            )
+        )
+
+        webIntent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK
+        )
+
+        context.startActivity(webIntent)
+
+        Log.d(
+            "PAYMENT_APP",
+            "Opened Play Store web: $packageName"
+        )
+
+    } catch (e: Exception) {
+
+        Log.e("PAYMENT_APP", "All attempts failed", e)
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -163,12 +412,8 @@ fun DepositScreen(
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = (
-                                    Arrangement.Center
-                                    ),
-                            verticalAlignment = (
-                                    Alignment.CenterVertically
-                                    )
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.Star,
@@ -178,9 +423,7 @@ fun DepositScreen(
                             )
                             Spacer(Modifier.width(14.dp))
                             Column(
-                                horizontalAlignment = (
-                                        Alignment.CenterHorizontally
-                                        )
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
                                     "Available Balance",
@@ -194,15 +437,11 @@ fun DepositScreen(
                                     "$currentBalance",
                                     color = Color.White,
                                     fontSize = 30.sp,
-                                    fontWeight = (
-                                            FontWeight.ExtraBold
-                                            )
+                                    fontWeight = FontWeight.ExtraBold
                                 )
                                 Text(
                                     "Coins",
-                                    color = Color.White.copy(
-                                        alpha = 0.7f
-                                    ),
+                                    color = Color.White.copy(alpha = 0.7f),
                                     fontSize = 14.sp
                                 )
                             }
@@ -243,9 +482,7 @@ fun DepositScreen(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
                         focusedBorderColor = gold,
-                        unfocusedBorderColor = (
-                                gold.copy(alpha = 0.3f)
-                                ),
+                        unfocusedBorderColor = gold.copy(alpha = 0.3f),
                         cursorColor = gold
                     ),
                     shape = RoundedCornerShape(16.dp),
@@ -260,40 +497,31 @@ fun DepositScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = (
-                            Arrangement.spacedBy(10.dp)
-                            )
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     quickAmounts.forEach { quickAmount ->
                         FilterChip(
-                            selected = amount ==
-                                    quickAmount.toString(),
+                            selected = amount == quickAmount.toString(),
                             onClick = {
                                 amount = quickAmount.toString()
                             },
                             label = {
                                 Text(
                                     "$quickAmount",
-                                    fontWeight = (
-                                            if (
-                                                amount ==
-                                                quickAmount.toString()
-                                            )
-                                                FontWeight.Bold
-                                            else
-                                                FontWeight.Medium
-                                            )
+                                    fontWeight = if (
+                                        amount == quickAmount.toString()
+                                    )
+                                        FontWeight.Bold
+                                    else
+                                        FontWeight.Medium
                                 )
                             },
-                            colors = FilterChipDefaults
-                                .filterChipColors(
-                                    selectedContainerColor = gold,
-                                    selectedLabelColor = (
-                                            Color(0xFF1A0000)
-                                            ),
-                                    containerColor = redDark,
-                                    labelColor = Color.White
-                                ),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = gold,
+                                selectedLabelColor = Color(0xFF1A0000),
+                                containerColor = redDark,
+                                labelColor = Color.White
+                            ),
                             border = BorderStroke(2.dp, gold),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
@@ -309,6 +537,14 @@ fun DepositScreen(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(Modifier.height(6.dp))
+
+                Text(
+                    "Tap on a provider — account number will be copied automatically",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 12.sp
+                )
+
                 Spacer(Modifier.height(14.dp))
 
                 val methodsList = listOf(
@@ -318,9 +554,7 @@ fun DepositScreen(
                 )
 
                 Column(
-                    verticalArrangement = (
-                            Arrangement.spacedBy(12.dp)
-                            )
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     methodsList.forEach { (key, title) ->
                         val isSelected = selectedMethod == key
@@ -340,7 +574,26 @@ fun DepositScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
+
                                     selectedMethod = key
+
+                                    coroutineScope.launch {
+
+                                        // 1.5 second delay so user
+                                        // sees the highlight before
+                                        // app opens
+                                        delay(150)
+
+                                        // Grab this provider's account number
+                                        val accountNumber =
+                                            adminPaymentDetails[key]?.second
+
+                                        openPaymentApp(
+                                            context = context,
+                                            provider = key,
+                                            accountNumber = accountNumber
+                                        )
+                                    }
                                 },
                             shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(
@@ -358,60 +611,46 @@ fun DepositScreen(
                                 modifier = Modifier.padding(18.dp)
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
-                                    verticalAlignment = (
-                                            Alignment.CenterVertically
-                                            ),
-                                    horizontalArrangement = (
-                                            Arrangement.SpaceBetween
-                                            )
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Row(
-                                        verticalAlignment = (
-                                                Alignment.CenterVertically
-                                                )
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(
-                                            imageVector = (
-                                                    if (
-                                                        key == "BINANCE"
-                                                    )
-                                                        Icons.Default.Star
-                                                    else
-                                                        Icons.Default
-                                                            .CreditCard
-                                                    ),
+                                            imageVector = if (key == "BINANCE")
+                                                Icons.Default.Star
+                                            else
+                                                Icons.Default.CreditCard,
                                             contentDescription = null,
-                                            tint = (
-                                                    if (
-                                                        key == "BINANCE"
-                                                    )
-                                                        Color(0xFFF0B90B)
-                                                    else
-                                                        Color.White
-                                                    )
+                                            tint = if (key == "BINANCE")
+                                                Color(0xFFF0B90B)
+                                            else
+                                                Color.White
                                         )
                                         Spacer(Modifier.width(16.dp))
-                                        Text(
-                                            title,
-                                            color = Color.White,
-                                            fontSize = 16.sp,
-                                            fontWeight = (
-                                                    if (isSelected)
-                                                        FontWeight.Bold
-                                                    else
-                                                        FontWeight.Medium
-                                                    )
-                                        )
+                                        Column {
+                                            Text(
+                                                title,
+                                                color = Color.White,
+                                                fontSize = 16.sp,
+                                                fontWeight = if (isSelected)
+                                                    FontWeight.Bold
+                                                else
+                                                    FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = "Tap to copy & open app",
+                                                color = Color.White.copy(alpha = 0.5f),
+                                                fontSize = 11.sp
+                                            )
+                                        }
                                     }
                                     if (isSelected) {
                                         Icon(
-                                            Icons.Default
-                                                .CheckCircle,
-                                            contentDescription = (
-                                                    "Selected"
-                                                    ),
+                                            Icons.Default.CheckCircle,
+                                            contentDescription = "Selected",
                                             tint = gold
                                         )
                                     }
@@ -422,46 +661,72 @@ fun DepositScreen(
                                             (accName, accNumber) ->
                                         Spacer(Modifier.height(14.dp))
                                         HorizontalDivider(
-                                            color = Color.White
-                                                .copy(alpha = 0.15f)
+                                            color = Color.White.copy(alpha = 0.15f)
                                         )
                                         Spacer(Modifier.height(10.dp))
                                         Text(
                                             text = "Send Money To:",
                                             color = gold,
                                             fontSize = 12.sp,
-                                            fontWeight = (
-                                                    FontWeight.Bold
-                                                    )
+                                            fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = (
-                                                    "Account Title: " +
-                                                            accName
-                                                    ),
-                                            color = Color.White
-                                                .copy(alpha = 0.9f),
+                                            text = "Account Title: $accName",
+                                            color = Color.White.copy(alpha = 0.9f),
                                             fontSize = 14.sp,
-                                            modifier = Modifier
-                                                .padding(top = 2.dp)
+                                            modifier = Modifier.padding(top = 2.dp)
                                         )
-                                        Text(
-                                            text = (
-                                                    "Account Number: " +
-                                                            accNumber
-                                                    ),
-                                            color = Color.White,
-                                            fontSize = 15.sp,
-                                            fontWeight = (
-                                                    FontWeight.Bold
-                                                    ),
+                                        Row(
                                             modifier = Modifier
-                                                .padding(top = 2.dp)
-                                        )
+                                                .fillMaxWidth()
+                                                .padding(top = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "Account Number: $accNumber",
+                                                color = Color.White,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+
+                                            TextButton(
+                                                onClick = {
+                                                    val copied = copyToClipboard(
+                                                        context = context,
+                                                        label = "$key Account Number",
+                                                        value = accNumber
+                                                    )
+
+                                                    if (copied) {
+
+                                                        if (Build.VERSION.SDK_INT <
+                                                            Build.VERSION_CODES.TIRAMISU
+                                                        ) {
+
+                                                            Toast.makeText(
+                                                                context,
+                                                                "📋 Account number copied!",
+                                                                Toast.LENGTH_SHORT
+                                                            ).show()
+                                                        }
+                                                    }
+                                                },
+                                                contentPadding = PaddingValues(
+                                                    horizontal = 8.dp,
+                                                    vertical = 0.dp
+                                                )
+                                            ) {
+                                                Text(
+                                                    "📋 Copy",
+                                                    color = gold,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
                                     } ?: run {
-                                        Spacer(
-                                            Modifier.height(8.dp)
-                                        )
+                                        Spacer(Modifier.height(8.dp))
                                         Text(
                                             "Details pending admin configuration setup.",
                                             color = Color.LightGray,
@@ -490,9 +755,7 @@ fun DepositScreen(
                     placeholder = {
                         Text(
                             "Enter Sender Name / Trans ID",
-                            color = Color.White.copy(
-                                alpha = 0.4f
-                            )
+                            color = Color.White.copy(alpha = 0.4f)
                         )
                     },
                     singleLine = true,
@@ -500,9 +763,7 @@ fun DepositScreen(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
                         focusedBorderColor = gold,
-                        unfocusedBorderColor = (
-                                gold.copy(alpha = 0.3f)
-                                )
+                        unfocusedBorderColor = gold.copy(alpha = 0.3f)
                     ),
                     shape = RoundedCornerShape(16.dp)
                 )
@@ -515,12 +776,10 @@ fun DepositScreen(
 
                 Button(
                     onClick = {
-                        amount.toIntOrNull()?.let {
-                                depositAmount ->
+                        amount.toIntOrNull()?.let { depositAmount ->
                             Log.d(
                                 "DEPOSIT",
-                                "Deposit $depositAmount via " +
-                                        "$selectedMethod"
+                                "Deposit $depositAmount via $selectedMethod"
                             )
                             onDepositSubmitted(
                                 depositAmount,

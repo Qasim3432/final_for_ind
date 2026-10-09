@@ -42,6 +42,41 @@ data class LeaderboardEntry(
 )
 
 
+// ==========================================================
+// PREMIUM COLOR PALETTE
+// ==========================================================
+
+private val BgScreenTop = Color(0xFF0A0505)
+private val BgScreenBottom = Color(0xFF150808)
+private val CardDeep = Color(0xFF0F0707)
+private val CardSecondary = Color(0xFF1A1A1D)
+private val GoldPure = Color(0xFFFFD700)
+private val GoldRich = Color(0xFFD4AF37)
+private val GoldDim = Color(0xFF8B6914)
+private val EmeraldSolid = Color(0xFF1B5E20)
+private val EmeraldBright = Color(0xFF43A047)
+
+// ==========================================================
+// RANK CARD COLORS
+// ==========================================================
+
+// Rank 1 — Blue
+private val Rank1CardBg = Color(0xFF0D2B5C)
+private val Rank1Accent = Color(0xFF42A5F5)
+
+// Rank 2 — Red
+private val Rank2CardBg = Color(0xFF4A0A0A)
+private val Rank2Accent = Color(0xFFEF5350)
+
+// Rank 3 — Yellow
+private val Rank3CardBg = Color(0xFF4A3A00)
+private val Rank3Accent = Color(0xFFFFCA28)
+
+// Rank 4+ — Green
+private val Rank4CardBg = Color(0xFF0F3D18)
+private val Rank4Accent = Color(0xFF66BB6A)
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeaderboardScreen(
@@ -51,14 +86,8 @@ fun LeaderboardScreen(
     onRefresh: (String) -> Unit = {}
 ) {
 
-    val gold = Color(0xFFFFD700)
-    val darkRed = Color(0xFF2B0000)
-
-    val gradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF0A0A0A),
-            Color(0xFF1A0000)
-        )
+    val screenGradient = Brush.verticalGradient(
+        colors = listOf(BgScreenTop, BgScreenBottom)
     )
 
     var selectedPeriod by remember {
@@ -72,17 +101,15 @@ fun LeaderboardScreen(
         val arr = leaderboardJson?.optJSONArray("top_players")
 
         if (arr != null) {
-
             for (i in 0 until arr.length()) {
-
                 val o = arr.optJSONObject(i) ?: continue
-
                 list.add(
                     LeaderboardEntry(
                         rank = o.optInt("rank", 0),
                         deviceToken = o.optString("device_token", ""),
                         displayName = o.optString("display_name", "Player"),
-                        profilePic = o.optString("profile_pic", "").takeIf { it.isNotBlank() && it != "null" },
+                        profilePic = o.optString("profile_pic", "")
+                            .takeIf { it.isNotBlank() && it != "null" },
                         wins = o.optInt("wins", 0),
                         games = o.optInt("games", 0),
                         losses = o.optInt("losses", 0),
@@ -111,7 +138,7 @@ fun LeaderboardScreen(
                         Icon(
                             Icons.Default.EmojiEvents,
                             contentDescription = null,
-                            tint = gold,
+                            tint = GoldPure,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(Modifier.width(10.dp))
@@ -119,7 +146,7 @@ fun LeaderboardScreen(
                             "Leaderboard",
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 20.sp,
-                            color = gold
+                            color = GoldPure
                         )
                     }
                 },
@@ -128,7 +155,7 @@ fun LeaderboardScreen(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = gold
+                            tint = GoldPure
                         )
                     }
                 },
@@ -143,7 +170,7 @@ fun LeaderboardScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient)
+                .background(screenGradient)
         ) {
 
             Column(
@@ -166,7 +193,6 @@ fun LeaderboardScreen(
                     PeriodTab(
                         label = "Weekly",
                         isSelected = selectedPeriod == "weekly",
-                        gold = gold,
                         onClick = {
                             selectedPeriod = "weekly"
                             onRefresh("weekly")
@@ -177,7 +203,6 @@ fun LeaderboardScreen(
                     PeriodTab(
                         label = "Monthly",
                         isSelected = selectedPeriod == "monthly",
-                        gold = gold,
                         onClick = {
                             selectedPeriod = "monthly"
                             onRefresh("monthly")
@@ -188,7 +213,6 @@ fun LeaderboardScreen(
                     PeriodTab(
                         label = "All Time",
                         isSelected = selectedPeriod == "alltime",
-                        gold = gold,
                         onClick = {
                             selectedPeriod = "alltime"
                             onRefresh("alltime")
@@ -199,22 +223,18 @@ fun LeaderboardScreen(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ==========================================
-                // Loading / Empty / List
-                // ==========================================
-
                 if (isLoading) {
 
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = gold)
+                        CircularProgressIndicator(color = GoldPure)
                     }
 
                 } else if (topPlayers.isEmpty()) {
 
-                    EmptyLeaderboard(gold)
+                    EmptyLeaderboard(GoldPure)
 
                 } else {
 
@@ -228,11 +248,7 @@ fun LeaderboardScreen(
                     ) {
 
                         items(topPlayers) { entry ->
-                            LeaderboardRow(
-                                entry = entry,
-                                gold = gold,
-                                darkRed = darkRed
-                            )
+                            LeaderboardRow(entry = entry)
                         }
 
                         item {
@@ -248,52 +264,57 @@ fun LeaderboardScreen(
 
             if (myRank > 0 && !isLoading) {
 
-                Box(
+                Card(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(Color(0xFF1B5E20), Color(0xFF2E7D32))
-                            )
-                        )
-                        .border(2.dp, gold, RoundedCornerShape(18.dp))
-                        .padding(14.dp)
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = EmeraldSolid
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        2.dp,
+                        GoldRich
+                    )
                 ) {
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp)
                     ) {
 
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
-                                .background(gold)
+                                .background(GoldPure)
                                 .border(2.dp, Color.White, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 "#$myRank",
-                                color = darkRed,
+                                color = Color(0xFF1A0A0A),
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 14.sp
+                                fontSize = 15.sp
                             )
                         }
 
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(14.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
 
                             Text(
-                                "Your Rank",
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
+                                "YOUR RANK",
+                                color = GoldPure,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
                             )
+
+                            Spacer(Modifier.height(3.dp))
 
                             Text(
                                 "$myWins wins • $myGames games • $myWinRate%",
@@ -305,7 +326,7 @@ fun LeaderboardScreen(
 
                         Text(
                             "🎯",
-                            fontSize = 26.sp
+                            fontSize = 28.sp
                         )
                     }
                 }
@@ -323,28 +344,20 @@ fun LeaderboardScreen(
 fun PeriodTab(
     label: String,
     isSelected: Boolean,
-    gold: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
 
     Box(
         modifier = modifier
-            .height(42.dp)
+            .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(
-                if (isSelected)
-                    Brush.horizontalGradient(
-                        listOf(gold, Color(0xFFD4AF37))
-                    )
-                else
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF1A0000), Color(0xFF1A0000))
-                    )
+                if (isSelected) GoldPure else CardDeep
             )
             .border(
                 1.5.dp,
-                if (isSelected) gold else gold.copy(alpha = 0.4f),
+                if (isSelected) GoldPure else GoldDim.copy(alpha = 0.4f),
                 RoundedCornerShape(12.dp)
             )
             .clickable { onClick() },
@@ -352,7 +365,7 @@ fun PeriodTab(
     ) {
         Text(
             label,
-            color = if (isSelected) Color(0xFF1A0000) else Color.White,
+            color = if (isSelected) Color(0xFF1A0A0A) else Color.White,
             fontSize = 13.sp,
             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
         )
@@ -365,33 +378,36 @@ fun PeriodTab(
 // ==========================================================
 
 @Composable
-fun LeaderboardRow(
-    entry: LeaderboardEntry,
-    gold: Color,
-    darkRed: Color
-) {
+fun LeaderboardRow(entry: LeaderboardEntry) {
 
-    val isTop3 = entry.rank <= 3
+    // ==========================================
+    // Rank-based colors
+    // 1 → Blue, 2 → Red, 3 → Yellow, 4+ → Green
+    // ==========================================
 
-    val (medalColor, medalEmoji) = when (entry.rank) {
-        1 -> Color(0xFFFFD700) to "🥇"
-        2 -> Color(0xFFC0C0C0) to "🥈"
-        3 -> Color(0xFFCD7F32) to "🥉"
-        else -> Color.Transparent to ""
+    val (cardBg, accentColor) = when (entry.rank) {
+        1 -> Rank1CardBg to Rank1Accent
+        2 -> Rank2CardBg to Rank2Accent
+        3 -> Rank3CardBg to Rank3Accent
+        else -> Rank4CardBg to Rank4Accent
+    }
+
+    val medalEmoji = when (entry.rank) {
+        1 -> "🥇"
+        2 -> "🥈"
+        3 -> "🥉"
+        else -> ""
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isTop3)
-                medalColor.copy(alpha = 0.10f)
-            else
-                Color(0xFF1A0000)
+            containerColor = cardBg
         ),
         border = androidx.compose.foundation.BorderStroke(
             1.5.dp,
-            if (isTop3) medalColor else gold.copy(alpha = 0.25f)
+            accentColor
         )
     ) {
 
@@ -402,24 +418,20 @@ fun LeaderboardRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
+            // Rank badge
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isTop3)
-                            medalColor.copy(alpha = 0.25f)
-                        else
-                            Color(0xFF2B0000)
-                    )
+                    .background(accentColor.copy(alpha = 0.25f))
                     .border(
                         1.5.dp,
-                        if (isTop3) medalColor else gold.copy(alpha = 0.3f),
+                        accentColor,
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (isTop3) {
+                if (entry.rank <= 3) {
                     Text(medalEmoji, fontSize = 22.sp)
                 } else {
                     Text(
@@ -433,14 +445,15 @@ fun LeaderboardRow(
 
             Spacer(Modifier.width(12.dp))
 
+            // Avatar
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF2B0000))
+                    .background(Color(0xFF1A1A1D))
                     .border(
                         1.5.dp,
-                        if (isTop3) medalColor else gold.copy(alpha = 0.5f),
+                        accentColor,
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -456,7 +469,7 @@ fun LeaderboardRow(
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        tint = gold,
+                        tint = GoldPure,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -474,11 +487,11 @@ fun LeaderboardRow(
                     maxLines = 1
                 )
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(3.dp))
 
                 Text(
                     "${entry.wins}W • ${entry.losses}L • ${entry.winRate}%",
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.sp
                 )
             }
@@ -488,15 +501,16 @@ fun LeaderboardRow(
             ) {
                 Text(
                     "${entry.wins}",
-                    color = gold,
+                    color = GoldPure,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
                     "wins",
-                    color = Color.White.copy(alpha = 0.5f),
+                    color = Color.White.copy(alpha = 0.6f),
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp
                 )
             }
         }

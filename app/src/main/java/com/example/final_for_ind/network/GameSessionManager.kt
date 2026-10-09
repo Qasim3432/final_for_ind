@@ -2987,4 +2987,140 @@ class GameSessionManager(
             null
         }
     }
+
+
+    // =========================================================
+    // SEND USER LOCATION  ← NEW
+    // =========================================================
+
+    suspend fun sendUserLocation(
+        deviceToken: String,
+        latitude: Double,
+        longitude: Double
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        val jsonBody =
+            JSONObject()
+
+        try {
+
+            jsonBody.put(
+                "device_token",
+                deviceToken
+            )
+
+            jsonBody.put(
+                "latitude",
+                latitude
+            )
+
+            jsonBody.put(
+                "longitude",
+                longitude
+            )
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "LOCATION",
+                "Failed to build payload",
+                e
+            )
+
+            return@withContext false
+        }
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/user/location/"
+                )
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(
+                            jsonMediaType
+                        )
+                )
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "LOCATION",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    response.isSuccessful
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "LOCATION",
+                "Send failed",
+                e
+            )
+
+            false
+        }
+    }
+
+
+    // =========================================================
+    // FETCH WITHDRAWAL STATUS  ← NEW
+    // =========================================================
+
+    suspend fun fetchWithdrawalStatus(
+        deviceToken: String
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val request =
+            Request.Builder()
+                .url(
+                    "${baseUrl}api/withdraw/status/$deviceToken/"
+                )
+                .get()
+                .build()
+
+        try {
+
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body =
+                        response.body?.string()
+                            ?: ""
+
+                    Log.d(
+                        "WITHDRAW_STATUS",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    if (!response.isSuccessful) {
+                        return@withContext null
+                    }
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+
+            Log.e(
+                "WITHDRAW_STATUS",
+                "Fetch failed",
+                e
+            )
+
+            null
+        }
+    }
 }

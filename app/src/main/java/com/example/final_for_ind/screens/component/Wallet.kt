@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.final_for_ind.network.TransactionLog
@@ -43,6 +45,31 @@ private val GoldLight = Color(0xFFFFE55C)
 private val CardBg = Color(0xFF1E1210)
 private val RedStart = Color(0xFF8B1A1A)
 private val RedEnd = Color(0xFFE53935)
+
+
+// ==========================================================
+// ADAPTIVE FONT SIZE FOR LONG NUMBERS
+//
+// Keeps full digits (no K/M/B) but shrinks the font
+// when the number gets long so it doesn't overflow.
+// ==========================================================
+
+fun adaptiveFontSize(value: Int): TextUnit {
+
+    val digits = value.toString().length
+
+    return when {
+        digits <= 4 -> 22.sp      // 9999
+        digits == 5 -> 20.sp      // 99999
+        digits == 6 -> 18.sp      // 999999
+        digits == 7 -> 16.sp      // 9999999
+        digits == 8 -> 14.sp      // 99999999
+        digits == 9 -> 13.sp      // 999999999
+        digits == 10 -> 12.sp     // 9999999999
+        else -> 11.sp             // 10000000000+
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,6 +145,7 @@ fun DashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // AVAILABLE BALANCE
                         Card(
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier
@@ -134,15 +162,34 @@ fun DashboardScreen(
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.AttachMoney, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                        Text("Available", color = Color.White.copy(0.9f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Icon(
+                                            Icons.Default.AttachMoney,
+                                            null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            "Available",
+                                            color = Color.White.copy(0.9f),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
                                     }
                                     Spacer(Modifier.height(4.dp))
-                                    Text(text = "$$balance", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text(
+                                        text = "$balance",
+                                        color = Color.White,
+                                        fontSize = adaptiveFontSize(balance),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }
 
+                        // IN MATCH (LOCKED)
                         Card(
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier
@@ -159,12 +206,30 @@ fun DashboardScreen(
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Lock, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                        Icon(
+                                            Icons.Default.Lock,
+                                            null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(15.dp)
+                                        )
                                         Spacer(Modifier.width(4.dp))
-                                        Text("In Match", color = Color.White.copy(0.9f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            "In Match",
+                                            color = Color.White.copy(0.9f),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
                                     }
                                     Spacer(Modifier.height(4.dp))
-                                    Text(text = "$$lockedCoins", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text(
+                                        text = "$lockedCoins",
+                                        color = Color.White,
+                                        fontSize = adaptiveFontSize(lockedCoins),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }

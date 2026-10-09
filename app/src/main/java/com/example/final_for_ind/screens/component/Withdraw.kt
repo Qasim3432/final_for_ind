@@ -1,5 +1,13 @@
 package com.example.final_for_ind.screens.component
 
+import android.Manifest
+import android.content.Intent
+import android.provider.Settings
+import android.widget.Toast
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -12,26 +20,38 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Star
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import com.example.final_for_ind.network.GameSessionManager
+import com.example.final_for_ind.utils.getCurrentLocation
+import com.example.final_for_ind.utils.isLocationEnabled
+
+import kotlinx.coroutines.launch
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WithdrawScreen(
     currentBalance: Int = 0,
+    sessionManager: GameSessionManager? = null,
     onBack: () -> Unit = {},
     onWithdrawSubmitted: (
         amount: Int,
@@ -49,7 +69,152 @@ fun WithdrawScreen(
 
     val scrollState = rememberScrollState()
 
-    // 👇 THEME COLORS
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // ==========================================================
+    // LOCATION STATE
+    // ==========================================================
+
+    var locationRequired by remember { mutableStateOf(false) }
+    var hasLocation by remember { mutableStateOf(true) }
+    var showLocationDialog by remember { mutableStateOf(false) }
+    var isLoadingStatus by remember { mutableStateOf(true) }
+    var isFetchingLocation by remember { mutableStateOf(false) }
+
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts
+                .RequestMultiplePermissions()
+        ) { permissions ->
+
+            val fineGranted = permissions[
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ] == true
+
+            val coarseGranted = permissions[
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ] == true
+
+            if (fineGranted || coarseGranted) {
+
+                scope.launch {
+
+                    if (!isLocationEnabled(context)) {
+
+                        Toast.makeText(
+                            context,
+                            "Please turn ON your phone's location (GPS)",
+                            Toast.LENGTH_LONG
+                        ).show()
+
+                        try {
+                            val intent = Intent(
+                                Settings.ACTION_LOCATION_SOURCE_SETTINGS
+                            )
+                            context.startActivity(intent)
+                        } catch (_: Exception) { }
+
+                        isFetchingLocation = false
+                        return@launch
+                    }
+
+                    isFetchingLocation = true
+
+                    try {
+
+                        val coords = getCurrentLocation(context)
+
+                        if (coords != null && sessionManager != null) {
+
+                            val token = sessionManager
+                                .getOrCreateUserToken()
+
+                            sessionManager.sendUserLocation(
+                                deviceToken = token,
+                                latitude = coords.first,
+                                longitude = coords.second
+                            )
+
+                            val status = sessionManager
+                                .fetchWithdrawalStatus(token)
+
+                            hasLocation = status?.optBoolean(
+                                "has_location", false
+                            ) ?: false
+
+                            showLocationDialog = !hasLocation
+
+                        } else {
+
+                            Toast.makeText(
+                                context,
+                                "Could not get GPS location. " +
+                                        "Please turn ON location and try again.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        isFetchingLocation = false
+                    }
+                }
+
+            } else {
+
+                Toast.makeText(
+                    context,
+                    "Location permission denied. " +
+                            "You cannot withdraw without it.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+    // Load withdrawal status on open
+    LaunchedEffect(Unit) {
+
+        if (sessionManager != null) {
+
+            try {
+
+                val token = sessionManager
+                    .getOrCreateUserToken()
+
+                val status = sessionManager
+                    .fetchWithdrawalStatus(token)
+
+                if (status != null) {
+
+                    locationRequired = status.optBoolean(
+                        "requires_location", false
+                    )
+
+                    hasLocation = status.optBoolean(
+                        "has_location", true
+                    )
+
+                    if (locationRequired && !hasLocation) {
+                        showLocationDialog = true
+                    }
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isLoadingStatus = false
+            }
+        } else {
+            isLoadingStatus = false
+        }
+    }
+
+    // ==========================================================
+    // THEME
+    // ==========================================================
+
     val bgGradient = Brush.verticalGradient(
         colors = listOf(
             Color(0xFF0A0A0A),
@@ -65,13 +230,13 @@ fun WithdrawScreen(
     val enteredAmount = amount.toIntOrNull() ?: 0
     val isValidAmount = enteredAmount > 0 && enteredAmount <= currentBalance
 
-    // Input validator rule checks
     val isFormValid = isValidAmount
             && accountTitle.isNotBlank()
             && accountNumber.isNotBlank()
 
-    // Balance must be loaded from server before we allow withdraw
     val balanceLoaded = currentBalance > 0
+
+    val isBlockedByLocation = locationRequired && !hasLocation
 
     Scaffold(
         topBar = {
@@ -111,10 +276,6 @@ fun WithdrawScreen(
         ) {
 
             Spacer(Modifier.height(24.dp))
-
-            // ------------------------------------------------
-            // Live Available Balance Display
-            // ------------------------------------------------
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -182,9 +343,51 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // ------------------------------------------------
-            // Balance Loading Warning
-            // ------------------------------------------------
+            if (isBlockedByLocation) {
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showLocationDialog = true
+                        },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFD32F2F).copy(alpha = 0.15f)
+                    ),
+                    border = BorderStroke(1.5.dp, Color(0xFFD32F2F))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Text("📍", fontSize = 24.sp)
+
+                        Spacer(Modifier.width(10.dp))
+
+                        Column {
+
+                            Text(
+                                "Location Required",
+                                color = Color(0xFFFF6B6B),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                "Please grant location permission to continue withdrawing.",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+            }
 
             if (!balanceLoaded) {
 
@@ -194,10 +397,7 @@ fun WithdrawScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = Color(0xFFFFA500).copy(alpha = 0.15f)
                     ),
-                    border = BorderStroke(
-                        1.5.dp,
-                        Color(0xFFFFA500)
-                    )
+                    border = BorderStroke(1.5.dp, Color(0xFFFFA500))
                 ) {
                     Row(
                         modifier = Modifier
@@ -206,10 +406,7 @@ fun WithdrawScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
 
-                        Text(
-                            "⚠️",
-                            fontSize = 20.sp
-                        )
+                        Text("⚠️", fontSize = 20.sp)
 
                         Spacer(Modifier.width(10.dp))
 
@@ -233,10 +430,6 @@ fun WithdrawScreen(
 
                 Spacer(Modifier.height(20.dp))
             }
-
-            // ------------------------------------------------
-            // 1. Amount Section
-            // ------------------------------------------------
 
             Text(
                 "1. Enter Withdrawal Value",
@@ -357,10 +550,6 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(36.dp))
 
-            // ------------------------------------------------
-            // 2. Payment Method Section
-            // ------------------------------------------------
-
             Text(
                 "2. Choose Receiving Method",
                 color = gold,
@@ -461,7 +650,6 @@ fun WithdrawScreen(
                                 }
                             }
 
-                            // 🟢 DYNAMIC FIELDS INJECTION BLOCK
                             AnimatedVisibility(visible = isSelected) {
 
                                 Column {
@@ -474,7 +662,6 @@ fun WithdrawScreen(
 
                                     Spacer(Modifier.height(12.dp))
 
-                                    // Account Title Field
                                     OutlinedTextField(
                                         value = accountTitle,
                                         onValueChange = {
@@ -502,7 +689,6 @@ fun WithdrawScreen(
 
                                     Spacer(Modifier.height(10.dp))
 
-                                    // Account Number Field
                                     OutlinedTextField(
                                         value = accountNumber,
                                         onValueChange = {
@@ -542,14 +728,11 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(36.dp))
 
-            // ------------------------------------------------
-            // Submit Button
-            //
-            // FIX: onBack() REMOVED. The MainActivity will
-            // handle navigation after PIN verification.
-            // ------------------------------------------------
-
-            val canSubmit = isFormValid && balanceLoaded
+            val canSubmit = isFormValid
+                    && balanceLoaded
+                    && !isBlockedByLocation
+                    && !isLoadingStatus
+                    && !isFetchingLocation
 
             Button(
                 onClick = {
@@ -560,7 +743,6 @@ fun WithdrawScreen(
                             accountTitle,
                             accountNumber
                         )
-                        // NOTE: do NOT call onBack() here.
                     }
                 },
                 modifier = Modifier
@@ -596,7 +778,16 @@ fun WithdrawScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Submit Withdrawal Request",
+                        when {
+                            isBlockedByLocation ->
+                                "📍 Grant Location First"
+                            isFetchingLocation ->
+                                "Getting location..."
+                            isLoadingStatus ->
+                                "Loading..."
+                            else ->
+                                "Submit Withdrawal Request"
+                        },
                         color = if (canSubmit)
                             Color.White
                         else
@@ -610,5 +801,96 @@ fun WithdrawScreen(
 
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showLocationDialog) {
+
+        AlertDialog(
+            onDismissRequest = { },
+            containerColor = Color(0xFF1A0000),
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📍", fontSize = 26.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Location Required",
+                        color = gold,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        "For security reasons, you must enable " +
+                                "location permission to continue withdrawing.\n\n" +
+                                "Please grant location access to proceed.",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = gold.copy(alpha = 0.15f)
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            "💡 Tip: Turn ON your phone's GPS from " +
+                                    "the notification panel before granting.",
+                            color = gold,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    },
+                    enabled = !isFetchingLocation,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = gold
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        if (isFetchingLocation)
+                            "Getting location..."
+                        else
+                            "Grant Location",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showLocationDialog = false
+                        onBack()
+                    },
+                    enabled = !isFetchingLocation
+                ) {
+                    Text(
+                        "Cancel",
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        )
     }
 }

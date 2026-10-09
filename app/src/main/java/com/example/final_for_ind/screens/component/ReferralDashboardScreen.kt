@@ -32,6 +32,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -49,6 +50,22 @@ data class ReferredUser(
 )
 
 
+// ==========================================================
+// COLOR PALETTE
+// ==========================================================
+
+private val BgScreenTop = Color(0xFF0A0505)
+private val BgScreenBottom = Color(0xFF150808)
+private val CardPrimary = Color(0xFF1A0A0A)
+private val CardSecondary = Color(0xFF251010)
+private val CardDeep = Color(0xFF0F0707)
+private val GoldPure = Color(0xFFFFD700)
+private val GoldRich = Color(0xFFD4AF37)
+private val GoldDim = Color(0xFF8B6914)
+private val EmeraldBright = Color(0xFF43A047)
+private val BlueBright = Color(0xFF2196F3)
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReferralDashboardScreen(
@@ -59,21 +76,11 @@ fun ReferralDashboardScreen(
 
     val context = LocalContext.current
 
-    val gold = Color(0xFFFFD700)
-    val darkRed = Color(0xFF2B0000)
-
-    val gradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF0A0A0A),
-            Color(0xFF1A0000)
-        )
+    val screenGradient = Brush.verticalGradient(
+        colors = listOf(BgScreenTop, BgScreenBottom)
     )
 
     var copied by remember { mutableStateOf(false) }
-
-    // ==========================================================
-    // SHARE TEXT TEMPLATE (fetched from server config)
-    // ==========================================================
 
     var shareTextTemplate by remember {
         mutableStateOf(
@@ -94,7 +101,6 @@ fun ReferralDashboardScreen(
                     shareTextTemplate = it
                 }
         } catch (e: Exception) {
-            // Silent fail — default stays
         }
     }
 
@@ -117,11 +123,8 @@ fun ReferralDashboardScreen(
         val arr = dashboardJson?.optJSONArray("referred_users")
 
         if (arr != null) {
-
             for (i in 0 until arr.length()) {
-
                 val o = arr.optJSONObject(i) ?: continue
-
                 list.add(
                     ReferredUser(
                         name = o.optString("name", "Player"),
@@ -152,7 +155,7 @@ fun ReferralDashboardScreen(
                         "Referral Dashboard",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
-                        color = gold
+                        color = GoldPure
                     )
                 },
                 navigationIcon = {
@@ -160,7 +163,7 @@ fun ReferralDashboardScreen(
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = gold
+                            tint = GoldPure
                         )
                     }
                 },
@@ -175,18 +178,16 @@ fun ReferralDashboardScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradient)
+                .background(screenGradient)
         ) {
 
             if (isLoading) {
-
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = gold)
+                    CircularProgressIndicator(color = GoldPure)
                 }
-
             } else {
 
                 LazyColumn(
@@ -200,45 +201,37 @@ fun ReferralDashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
 
-                    // ----------------------------------------------
-                    // Referral Code Card
-                    // ----------------------------------------------
+                    // ==========================================
+                    // REFERRAL CODE CARD
+                    // ==========================================
 
                     item {
-
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(22.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = Color.Transparent
+                                containerColor = CardPrimary
                             ),
                             border = androidx.compose.foundation.BorderStroke(
-                                2.5.dp,
-                                gold
+                                2.dp,
+                                GoldRich
                             )
                         ) {
 
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                Color(0xFF4A0000),
-                                                Color(0xFF1A0000)
-                                            )
-                                        )
-                                    )
                                     .padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
 
                                 Text(
                                     "🎁 YOUR REFERRAL CODE",
-                                    color = gold,
+                                    color = GoldRich,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp
+                                    letterSpacing = 1.5.sp,
+                                    textAlign = TextAlign.Center
                                 )
 
                                 Spacer(Modifier.height(14.dp))
@@ -248,29 +241,33 @@ fun ReferralDashboardScreen(
                                     color = Color.White,
                                     fontSize = 42.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 8.sp
+                                    letterSpacing = 8.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center
                                 )
 
                                 Spacer(Modifier.height(20.dp))
 
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
 
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(48.dp)
+                                            .height(50.dp)
                                             .clip(RoundedCornerShape(14.dp))
                                             .background(
-                                                if (copied) Color(0xFF2E7D32)
-                                                else gold
+                                                if (copied) EmeraldBright
+                                                else GoldPure
                                             )
                                             .clickable {
-
-                                                val clipboard = context.getSystemService(
-                                                    Context.CLIPBOARD_SERVICE
-                                                ) as ClipboardManager
+                                                val clipboard = context
+                                                    .getSystemService(
+                                                        Context.CLIPBOARD_SERVICE
+                                                    ) as ClipboardManager
 
                                                 clipboard.setPrimaryClip(
                                                     ClipData.newPlainText(
@@ -290,12 +287,14 @@ fun ReferralDashboardScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
 
                                             Icon(
                                                 Icons.Default.ContentCopy,
                                                 contentDescription = null,
-                                                tint = Color(0xFF1A0000),
+                                                tint = Color(0xFF1A0A0A),
                                                 modifier = Modifier.size(18.dp)
                                             )
 
@@ -303,9 +302,11 @@ fun ReferralDashboardScreen(
 
                                             Text(
                                                 if (copied) "COPIED!" else "COPY CODE",
-                                                color = Color(0xFF1A0000),
+                                                color = Color(0xFF1A0A0A),
                                                 fontWeight = FontWeight.ExtraBold,
-                                                fontSize = 14.sp
+                                                fontSize = 13.sp,
+                                                letterSpacing = 0.5.sp,
+                                                maxLines = 1
                                             )
                                         }
                                     }
@@ -313,19 +314,10 @@ fun ReferralDashboardScreen(
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(48.dp)
+                                            .height(50.dp)
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(
-                                                Brush.horizontalGradient(
-                                                    listOf(
-                                                        Color(0xFF8B0000),
-                                                        Color(0xFFD32F2F)
-                                                    )
-                                                )
-                                            )
+                                            .background(Color(0xFF8B0000))
                                             .clickable {
-
-                                                // ✅ Dynamic share text from server config
                                                 val shareText = shareTextTemplate
                                                     .replace("{code}", referralCode)
 
@@ -344,7 +336,9 @@ fun ReferralDashboardScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
 
                                             Icon(
                                                 Icons.Default.Share,
@@ -359,7 +353,9 @@ fun ReferralDashboardScreen(
                                                 "SHARE",
                                                 color = Color.White,
                                                 fontWeight = FontWeight.ExtraBold,
-                                                fontSize = 14.sp
+                                                fontSize = 13.sp,
+                                                letterSpacing = 0.5.sp,
+                                                maxLines = 1
                                             )
                                         }
                                     }
@@ -368,12 +364,11 @@ fun ReferralDashboardScreen(
                         }
                     }
 
-                    // ----------------------------------------------
-                    // Stats Row
-                    // ----------------------------------------------
+                    // ==========================================
+                    // STATS ROW
+                    // ==========================================
 
                     item {
-
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -383,7 +378,7 @@ fun ReferralDashboardScreen(
                                 icon = "👥",
                                 label = "Referred",
                                 value = "$totalReferred",
-                                cardColor = Color(0xFF1A4A6B),
+                                accentColor = BlueBright,
                                 modifier = Modifier.weight(1f)
                             )
 
@@ -391,45 +386,45 @@ fun ReferralDashboardScreen(
                                 icon = "💰",
                                 label = "Earned",
                                 value = "$totalCommission",
-                                cardColor = Color(0xFF2E7D32),
+                                accentColor = EmeraldBright,
                                 modifier = Modifier.weight(1f)
                             )
                         }
                     }
 
-                    // ----------------------------------------------
-                    // Section header
-                    // ----------------------------------------------
+                    // ==========================================
+                    // SECTION HEADER
+                    // ==========================================
 
                     item {
-
-                        Text(
-                            "Referred Users",
-                            color = gold,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(top = 8.dp)
-                        )
+                        ) {
+                            Box(
+                                Modifier
+                                    .width(4.dp)
+                                    .height(20.dp)
+                                    .background(GoldPure)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "Referred Users",
+                                color = GoldPure,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
 
-                    // ----------------------------------------------
-                    // Users list / Empty
-                    // ----------------------------------------------
-
                     if (referredUsers.isEmpty()) {
-
                         item {
-                            EmptyReferralState(gold)
+                            EmptyReferralState(GoldPure)
                         }
-
                     } else {
-
                         items(referredUsers) { user ->
-                            ReferredUserCard(
-                                user = user,
-                                gold = gold,
-                                darkRed = darkRed
-                            )
+                            ReferredUserCard(user = user)
                         }
                     }
 
@@ -444,7 +439,7 @@ fun ReferralDashboardScreen(
 
 
 // ==========================================================
-// STAT CARD
+// STAT CARD — height increased to prevent text cutoff
 // ==========================================================
 
 @Composable
@@ -452,53 +447,58 @@ fun StatCard(
     icon: String,
     label: String,
     value: String,
-    cardColor: Color,
+    accentColor: Color,
     modifier: Modifier = Modifier
 ) {
 
     Card(
-        modifier = modifier.height(130.dp),
+        modifier = modifier.height(140.dp),   // ← 120 → 140
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = cardColor.copy(alpha = 0.30f)
+            containerColor = CardDeep
         ),
         border = androidx.compose.foundation.BorderStroke(
-            2.dp,
-            cardColor.copy(alpha = 0.8f)
+            1.5.dp,
+            accentColor.copy(alpha = 0.6f)
         )
     ) {
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
+                .padding(horizontal = 12.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
 
             Text(
                 icon,
-                fontSize = 32.sp
+                fontSize = 28.sp
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
             Text(
                 value,
-                color = Color.White,
-                fontSize = 26.sp,
+                color = accentColor,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
             )
 
             Spacer(Modifier.height(4.dp))
 
             Text(
                 label,
-                color = Color.White.copy(alpha = 0.75f),
-                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.65f),
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                letterSpacing = 0.5.sp,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -506,59 +506,52 @@ fun StatCard(
 
 
 // ==========================================================
-// REFERRED USER CARD
+// REFERRED USER CARD — with proper overflow
 // ==========================================================
 
 @Composable
-fun ReferredUserCard(
-    user: ReferredUser,
-    gold: Color,
-    darkRed: Color
-) {
+fun ReferredUserCard(user: ReferredUser) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1A0000)
+            containerColor = CardPrimary
         ),
         border = androidx.compose.foundation.BorderStroke(
             1.5.dp,
-            gold.copy(alpha = 0.3f)
+            GoldDim.copy(alpha = 0.5f)
         )
     ) {
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
 
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(46.dp)
                     .clip(CircleShape)
-                    .background(darkRed)
-                    .border(1.5.dp, gold.copy(alpha = 0.5f), CircleShape),
+                    .background(CardSecondary)
+                    .border(1.5.dp, GoldRich, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
 
                 if (!user.profilePic.isNullOrBlank()) {
-
                     AsyncImage(
                         model = user.profilePic,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-
                 } else {
-
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        tint = gold,
+                        tint = GoldPure,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -573,19 +566,24 @@ fun ReferredUserCard(
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(3.dp))
 
                 Text(
                     "Joined ${user.joinedAt}",
-                    color = Color.White.copy(alpha = 0.5f),
-                    fontSize = 11.sp
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
             if (user.commissionEarned > 0) {
+
+                Spacer(Modifier.width(8.dp))
 
                 Column(
                     horizontalAlignment = Alignment.End
@@ -593,15 +591,17 @@ fun ReferredUserCard(
 
                     Text(
                         "+${user.commissionEarned}",
-                        color = Color(0xFF4CAF50),
+                        color = EmeraldBright,
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1
                     )
 
                     Text(
                         "coins",
                         color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        maxLines = 1
                     )
                 }
             }
@@ -632,7 +632,8 @@ fun EmptyReferralState(gold: Color) {
             "No referrals yet",
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
 
         Spacer(Modifier.height(8.dp))

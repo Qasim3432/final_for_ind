@@ -5,10 +5,10 @@ import android.graphics.Paint as AndroidPaint
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,13 +32,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -53,6 +55,21 @@ import com.example.final_for_ind.utils.SoundManager
 
 data class SpinGift(val name: String, val emoji: String, val coinValue: Int, val color: Color)
 data class SpinData(val canUseFreeSpin: Boolean, val timeLeft: Long)
+
+
+// ==========================================================
+// PREMIUM COLOR PALETTE
+// ==========================================================
+
+private val BgDeep = Color(0xFF0A0606)
+private val BgRich = Color(0xFF150808)
+private val GoldPure = Color(0xFFFFD700)
+private val GoldRich = Color(0xFFD4AF37)
+private val GoldDim = Color(0xFF8B6914)
+private val CrimsonRich = Color(0xFF8B0000)
+private val CrimsonBright = Color(0xFFD32F2F)
+private val EmeraldDeep = Color(0xFF1B5E20)
+private val EmeraldBright = Color(0xFF43A047)
 
 
 // ==========================================================
@@ -96,27 +113,37 @@ fun GiftScreen(
     val sessionManager = remember { GameSessionManager(context) }
     val configuration = LocalConfiguration.current
 
-    // ----------------------------------------------
-    // Responsive wheel size
-    // ----------------------------------------------
-
     val screenWidth = configuration.screenWidthDp.dp
-    val wheelSize = minOf(screenWidth - 64.dp, 340.dp)
+    val wheelSize = minOf(screenWidth - 56.dp, 320.dp)
 
-    // ----------------------------------------------
-    // Gifts (varied colors for contrast)
-    // ----------------------------------------------
+    // ==========================================================
+    // GIFT POOL — premium palette
+    // ==========================================================
 
     val gifts = listOf(
-        SpinGift("50 Coins", "🪙", 50, Color(0xFFB8860B)),   // Dark goldenrod
-        SpinGift("10 Coins", "🪙", 10, Color(0xFF8B1A1A)),   // Deep red
-        SpinGift("20 Coins", "💰", 20, Color(0xFFD4AF37)),   // Gold
-        SpinGift("Rose", "🌹", 0, Color(0xFF5C2B2B)),        // Dark brown-red
-        SpinGift("30 Diamond", "💎", 30, Color(0xFF1A4A6B)), // Deep blue
-        SpinGift("Try Again", "✨", 0, Color(0xFF4A2B4A)),   // Deep purple
-        SpinGift("40 Coins", "🪙", 40, Color(0xFF2B4A2B)),   // Deep green
-        SpinGift("Crown", "👑", 0, Color(0xFF6B3A1A))        // Dark amber
+        SpinGift("50", "🪙", 50, Color(0xFFB8860B)),    // Goldenrod
+        SpinGift("10", "🪙", 10, Color(0xFF8B0000)),    // Dark red
+        SpinGift("20", "💰", 20, Color(0xFF6B4A0B)),    // Dark gold
+        SpinGift("Rose", "🌹", 0, Color(0xFF6B1B1B)),   // Deep rose
+        SpinGift("30", "💎", 30, Color(0xFF1E4D6B)),    // Steel blue
+        SpinGift("Try", "✨", 0, Color(0xFF4A1B5C)),    // Deep purple
+        SpinGift("40", "🪙", 40, Color(0xFF1B5E20)),    // Forest green
+        SpinGift("Crown", "👑", 0, Color(0xFF6B3A1A))   // Burnt amber
     )
+
+    // ==========================================================
+    // SPARKLE POSITIONS
+    // ==========================================================
+
+    val sparklePositions = remember {
+        List(40) {
+            Triple(
+                Random.nextFloat(),
+                Random.nextFloat(),
+                Random.nextFloat()
+            )
+        }
+    }
 
     var coins by remember { mutableStateOf(currentCoins) }
     var isSpinning by remember { mutableStateOf(false) }
@@ -126,37 +153,35 @@ fun GiftScreen(
     var serverPaidCost by remember { mutableStateOf(paidSpinCost) }
     var giftEnabled by remember { mutableStateOf(true) }
 
+    val animatedCoins by animateIntAsState(
+        targetValue = coins,
+        animationSpec = tween(durationMillis = 800),
+        label = "coins"
+    )
+
     val animatedRotation = remember { Animatable(0f) }
 
     val sparkleAlpha by rememberInfiniteTransition(label = "sparkle").animateFloat(
-        0.3f, 1f,
-        infiniteRepeatable(tween(1500), RepeatMode.Reverse),
+        0.2f, 0.8f,
+        infiniteRepeatable(tween(2000), RepeatMode.Reverse),
         label = "sparkle"
     )
 
-    // ----------------------------------------------
-    // Idle wheel gentle sway (only when not spinning)
-    // ----------------------------------------------
-
     val idleSway by rememberInfiniteTransition(label = "idle").animateFloat(
-        initialValue = -2f,
-        targetValue = 2f,
+        initialValue = -3f,
+        targetValue = 3f,
         animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
+            animation = tween(4000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "idle"
     )
 
-    // ----------------------------------------------
-    // Pulse scale for SPIN button
-    // ----------------------------------------------
-
     val pulseScale by rememberInfiniteTransition(label = "pulse").animateFloat(
         initialValue = 1f,
-        targetValue = 1.08f,
+        targetValue = 1.06f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
+            animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
@@ -198,9 +223,21 @@ fun GiftScreen(
         }
     }
 
+    val currentCost = if (spinData.canUseFreeSpin) 0 else serverPaidCost
+    val canAfford = coins >= currentCost
+    val canSpin = canAfford && !isSpinning
+
     fun doSpin() {
-        val cost = if (spinData.canUseFreeSpin) 0 else serverPaidCost
-        if (coins < cost || isSpinning) return
+        if (!canSpin) {
+            if (!canAfford) {
+                Toast.makeText(
+                    context,
+                    "Not enough coins. Need $serverPaidCost",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            return
+        }
 
         isSpinning = true
         vibrate(context, 60)
@@ -209,17 +246,10 @@ fun GiftScreen(
             val result = sessionManager.submitSpin()
 
             if (result != null && result.optString("status") == "success") {
-
                 val targetIndex = result.optInt("won_index", Random.nextInt(gifts.size))
                 val newCoins = result.optInt("coins", coins)
                 val sweepAngle = 360f / gifts.size
-
-                // Multiple full rotations + land on the target
                 val targetRotation = 360f * 6 + (360f - targetIndex * sweepAngle - sweepAngle / 2)
-
-                // ----------------------------------------------
-                // PLAY SPIN TICK SOUND (background)
-                // ----------------------------------------------
 
                 launch {
                     repeat(30) {
@@ -233,7 +263,6 @@ fun GiftScreen(
                     animationSpec = tween(4000, easing = FastOutSlowInEasing)
                 )
 
-                // Small pause before result dialog
                 delay(200)
 
                 val gift = gifts.getOrNull(targetIndex)
@@ -242,64 +271,140 @@ fun GiftScreen(
                 showResult = true
                 isSpinning = false
 
-                // Haptic celebration
                 vibrate(context, 120)
-
                 loadStatusFromServer()
 
                 if (gift != null && gift.coinValue > 0) {
-
-                    // ----------------------------------------------
-                    // PLAY COIN REWARD SOUND
-                    // ----------------------------------------------
-
                     SoundManager.playCoinReward()
-
                     onRewardClaimed(gift.coinValue)
                 }
             } else {
                 isSpinning = false
+                val msg = result?.optString("error")
+                    ?.takeIf { it.isNotBlank() }
+                    ?: "Spin failed. Try again."
+                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             }
         }
     }
 
+    // ==========================================================
+    // GIFT DISABLED
+    // ==========================================================
+
     if (!giftEnabled) {
-        Box(Modifier.fillMaxSize().background(Color(0xFF0A0A0A)), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🎁", fontSize = 72.sp)
-                Spacer(Modifier.height(16.dp))
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(BgDeep, BgRich)
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Text("🎁", fontSize = 80.sp)
+
+                Spacer(Modifier.height(24.dp))
+
                 Text(
-                    "Gift system is currently disabled",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center
+                    "Gift System Offline",
+                    color = GoldPure,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
                 )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    "We're preparing something special.\nCheck back soon!",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+
+                Spacer(Modifier.height(32.dp))
+
+                Box(
+                    Modifier
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(GoldDim, GoldRich)
+                            )
+                        )
+                        .border(
+                            2.dp,
+                            GoldPure.copy(alpha = 0.6f),
+                            RoundedCornerShape(26.dp)
+                        )
+                        .clickable { onBack() }
+                        .padding(horizontal = 48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Go Back",
+                        color = BgDeep,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        letterSpacing = 1.5.sp
+                    )
+                }
             }
         }
         return
     }
 
-    Box(Modifier.fillMaxSize()) {
+    // ==========================================================
+    // MAIN LAYOUT
+    // ==========================================================
 
-        Image(
-            painter = painterResource(id = com.example.final_for_ind.R.drawable.h),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(BgDeep, BgRich, BgDeep)
+                )
+            )
+    ) {
+
+        // ----------------------------------------------
+        // Subtle radial glow behind wheel
+        // ----------------------------------------------
+
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(wheelSize + 200.dp)
+                .blur(80.dp)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            GoldDim.copy(alpha = 0.15f),
+                            Color.Transparent
+                        )
+                    )
+                )
         )
 
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
-
+        // ----------------------------------------------
         // Sparkles
+        // ----------------------------------------------
+
         Canvas(Modifier.fillMaxSize()) {
-            repeat(50) {
+            sparklePositions.forEach { (fx, fy, sizeFactor) ->
                 drawCircle(
-                    Color(0xFFFFD700).copy(alpha = sparkleAlpha * Random.nextFloat() * 0.7f),
-                    radius = Random.nextFloat() * 3f,
-                    center = androidx.compose.ui.geometry.Offset(
-                        Random.nextFloat() * size.width,
-                        Random.nextFloat() * size.height
-                    )
+                    GoldPure.copy(alpha = sparkleAlpha * sizeFactor * 0.5f),
+                    radius = sizeFactor * 2.5f,
+                    center = Offset(fx * size.width, fy * size.height)
                 )
             }
         }
@@ -311,34 +416,6 @@ fun GiftScreen(
                     onItemClick = onNavItemClick
                 )
             },
-            topBar = {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(50.dp)
-                        .clip(RoundedCornerShape(25.dp))
-                        .background(Brush.horizontalGradient(listOf(Color(0xFF1A1A1A), Color(0xFF000))))
-                        .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(25.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            "Back",
-                            tint = Color(0xFFD4AF37),
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Text(
-                        "Lucky Spin",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 22.sp,
-                        color = Color(0xFFD4AF37),
-                        letterSpacing = 1.5.sp
-                    )
-                }
-            },
             containerColor = Color.Transparent
         ) { paddingValues ->
 
@@ -347,120 +424,249 @@ fun GiftScreen(
                     .fillMaxSize()
                     .verticalScroll(scrollState)
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // ==============================================
-                // Balance Card
+                // TOP HEADER BAR
                 // ==============================================
 
-                Box(
-                    Modifier
+                Row(
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Brush.verticalGradient(listOf(Color(0xFF4A0000), Color(0xFF2B0000))))
-                        .border(3.dp, Color(0xFFD4AF37), RoundedCornerShape(20.dp))
+                        .height(52.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Star,
-                        null,
-                        tint = Color(0xFFD4AF37),
+
+                    // Back button
+                    Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .align(Alignment.CenterStart)
-                            .padding(start = 20.dp)
-                    )
-
-                    Canvas(
-                        Modifier
-                            .size(40.dp)
-                            .align(Alignment.CenterEnd)
-                            .padding(end = 20.dp)
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.06f))
+                            .border(
+                                1.dp,
+                                GoldRich.copy(alpha = 0.4f),
+                                CircleShape
+                            )
+                            .clickable { onBack() },
+                        contentAlignment = Alignment.Center
                     ) {
-                        drawCircle(
-                            Brush.radialGradient(
-                                listOf(Color(0xFFFFD700), Color(0xFFD4AF37))
-                            ),
-                            radius = size.width / 2
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            "Back",
+                            tint = GoldPure,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Column(
-                        Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Spacer(Modifier.weight(1f))
+
+                    // Title with icon
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "Your Balance",
-                            color = Color(0xFFD4AF37),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
+                        Icon(
+                            Icons.Default.Casino,
+                            null,
+                            tint = GoldPure,
+                            modifier = Modifier.size(22.dp)
                         )
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            "$coins Coins",
-                            color = Color(0xFFFFD700),
-                            fontSize = 34.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            "Lucky Spin",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 20.sp,
+                            color = Color.White,
+                            letterSpacing = 1.sp
                         )
                     }
-                }
 
-                // ==============================================
-                // Status chip (free spin ready / timer)
-                // ==============================================
+                    Spacer(Modifier.weight(1f))
 
-                Box(
-                    Modifier
-                        .offset(y = (-15).dp)
-                        .height(45.dp)
-                        .padding(horizontal = 30.dp)
-                        .clip(RoundedCornerShape(25.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                if (spinData.canUseFreeSpin)
-                                    listOf(Color(0xFF2E7D32), Color(0xFF4CAF50))
-                                else
-                                    listOf(Color(0xFF8B0000), Color(0xFFD32F2F))
-                            )
-                        )
-                        .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(25.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AnimatedContent(
-                        targetState = spinData.canUseFreeSpin,
-                        label = "status"
-                    ) { canFree ->
-                        if (canFree) {
-                            Text(
-                                "🎉 FREE SPIN READY",
-                                color = Color.White,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-                        } else {
-                            val h = spinData.timeLeft / 3600
-                            val m = (spinData.timeLeft % 3600) / 60
-                            val s = spinData.timeLeft % 60
-                            Text(
-                                "Next FREE in: ${h}h ${m}m ${s}s",
-                                color = Color(0xFFFFD700),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-                        }
-                    }
+                    // Placeholder for symmetry
+                    Box(Modifier.size(44.dp))
                 }
 
                 Spacer(Modifier.height(20.dp))
 
                 // ==============================================
-                // Spin Wheel
+                // BALANCE CARD — premium
+                // ==============================================
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    Color(0xFF1F0A0A),
+                                    Color(0xFF2B0000),
+                                    Color(0xFF1F0A0A)
+                                )
+                            )
+                        )
+                        .border(
+                            1.5.dp,
+                            Brush.linearGradient(
+                                listOf(
+                                    GoldRich.copy(alpha = 0.8f),
+                                    GoldPure.copy(alpha = 0.4f),
+                                    GoldRich.copy(alpha = 0.8f)
+                                )
+                            ),
+                            RoundedCornerShape(24.dp)
+                        )
+                        .padding(horizontal = 24.dp, vertical = 22.dp)
+                ) {
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Column {
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    null,
+                                    tint = GoldRich,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "YOUR BALANCE",
+                                    color = GoldRich,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 2.sp
+                                )
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "${animatedCoins}",
+                                    color = Color.White,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = -0.5.sp
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "Coins",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        // Coin emblem
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(
+                                            GoldPure,
+                                            GoldRich
+                                        )
+                                    )
+                                )
+                                .border(
+                                    2.dp,
+                                    GoldDim,
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🪙", fontSize = 26.sp)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // ==============================================
+                // STATUS CHIP
+                // ==============================================
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            if (spinData.canUseFreeSpin)
+                                Brush.horizontalGradient(
+                                    listOf(EmeraldDeep, EmeraldBright)
+                                )
+                            else
+                                Brush.horizontalGradient(
+                                    listOf(CrimsonRich, CrimsonBright)
+                                )
+                        )
+                        .border(
+                            1.5.dp,
+                            GoldRich.copy(alpha = 0.6f),
+                            RoundedCornerShape(20.dp)
+                        )
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+
+                    AnimatedContent(
+                        targetState = spinData.canUseFreeSpin,
+                        label = "status"
+                    ) { canFree ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (canFree) {
+                                Icon(
+                                    Icons.Default.Bolt,
+                                    null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "FREE SPIN READY",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 13.sp,
+                                    letterSpacing = 1.sp
+                                )
+                            } else {
+                                val h = spinData.timeLeft / 3600
+                                val m = (spinData.timeLeft % 3600) / 60
+                                val s = spinData.timeLeft % 60
+                                Text(
+                                    "⏱ ${h}h ${m}m ${s}s",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                // ==============================================
+                // SPIN WHEEL
                 // ==============================================
 
                 Box(
@@ -468,22 +674,28 @@ fun GiftScreen(
                     contentAlignment = Alignment.Center
                 ) {
 
-                    // Outer glow
-                    Canvas(modifier = Modifier.size(wheelSize).blur(25.dp)) {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                listOf(Color(0xFFFFD700).copy(alpha = 0.4f), Color.Transparent)
-                            ),
-                            radius = size.width / 2
-                        )
-                    }
+                    // Outer glow ring
+                    Box(
+                        Modifier
+                            .size(wheelSize + 30.dp)
+                            .blur(30.dp)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(
+                                        GoldRich.copy(alpha = 0.5f),
+                                        Color.Transparent
+                                    )
+                                ),
+                                CircleShape
+                            )
+                    )
 
                     // Pointer (top triangle)
                     Canvas(
                         modifier = Modifier
-                            .size(50.dp)
+                            .size(40.dp)
                             .align(Alignment.TopCenter)
-                            .offset(y = (-10).dp)
+                            .offset(y = (-5).dp)
                     ) {
                         val path = Path().apply {
                             moveTo(size.width / 2, size.height)
@@ -493,14 +705,21 @@ fun GiftScreen(
                         }
                         drawPath(
                             path,
-                            Brush.verticalGradient(listOf(Color(0xFFFFD700), Color(0xFFD4AF37)))
+                            Brush.verticalGradient(
+                                listOf(GoldPure, GoldRich, GoldDim)
+                            )
+                        )
+                        drawPath(
+                            path,
+                            Color(0xFF1A0A0A),
+                            style = Stroke(width = 2.dp.toPx())
                         )
                     }
 
-                    // Wheel
+                    // Wheel canvas
                     Canvas(
                         modifier = Modifier
-                            .size(wheelSize - 20.dp)
+                            .size(wheelSize - 30.dp)
                             .rotate(animatedRotation.value + idleSway)
                     ) {
                         val sweepAngle = 360f / gifts.size
@@ -515,7 +734,10 @@ fun GiftScreen(
                             // Segment
                             drawArc(
                                 brush = Brush.sweepGradient(
-                                    listOf(gift.color, gift.color.copy(alpha = 0.85f))
+                                    listOf(
+                                        gift.color,
+                                        gift.color.copy(alpha = 0.85f)
+                                    )
                                 ),
                                 startAngle = startAngle,
                                 sweepAngle = sweepAngle,
@@ -523,17 +745,17 @@ fun GiftScreen(
                                 size = Size(size.width, size.height)
                             )
 
-                            // Segment border
+                            // Thin gold border
                             drawArc(
-                                color = Color(0xFFD4AF37),
+                                color = GoldRich.copy(alpha = 0.7f),
                                 startAngle = startAngle,
                                 sweepAngle = sweepAngle,
                                 useCenter = true,
-                                style = Stroke(width = 3.dp.toPx()),
+                                style = Stroke(width = 1.5.dp.toPx()),
                                 size = Size(size.width, size.height)
                             )
 
-                            // Text position
+                            // Text
                             val textRadius = radius * 0.68f
                             val angleRad = Math.toRadians(middleAngle.toDouble())
                             val x = (radius + textRadius * cos(angleRad)).toFloat()
@@ -541,17 +763,16 @@ fun GiftScreen(
 
                             val label = if (gift.coinValue > 0) "${gift.coinValue}" else gift.name
 
-                            // Decide whether to flip text upside down
                             val normalizedAngle = ((middleAngle + 360) % 360)
                             val shouldFlip = normalizedAngle > 90 && normalizedAngle < 270
 
                             val emojiPaint = AndroidPaint().apply {
-                                textSize = 48f
+                                textSize = 42f
                                 textAlign = AndroidPaint.Align.CENTER
                                 isAntiAlias = true
                             }
                             val textPaint = AndroidPaint().apply {
-                                textSize = 22f
+                                textSize = 18f
                                 textAlign = AndroidPaint.Align.CENTER
                                 color = android.graphics.Color.WHITE
                                 isFakeBoldText = true
@@ -564,50 +785,117 @@ fun GiftScreen(
                                 x,
                                 y
                             )
-                            nativeCanvas.drawText(gift.emoji, x, y - 15f, emojiPaint)
+                            nativeCanvas.drawText(gift.emoji, x, y - 12f, emojiPaint)
                             nativeCanvas.drawText(label, x, y + 20f, textPaint)
                             nativeCanvas.restore()
                         }
                     }
 
-                    // SPIN Button (center)
+                    // Gold ring border around wheel
+                    Box(
+                        Modifier
+                            .size(wheelSize - 30.dp)
+                            .border(
+                                4.dp,
+                                Brush.sweepGradient(
+                                    listOf(
+                                        GoldRich,
+                                        GoldPure,
+                                        GoldDim,
+                                        GoldPure,
+                                        GoldRich
+                                    )
+                                ),
+                                CircleShape
+                            )
+                    )
+
+                    // ==========================================
+                    // SPIN BUTTON (center)
+                    // ==========================================
+
                     Box(
                         modifier = Modifier
-                            .size(105.dp)
-                            .scale(if (spinData.canUseFreeSpin && !isSpinning) pulseScale else 1f)
+                            .size(110.dp)
+                            .scale(
+                                if (spinData.canUseFreeSpin && !isSpinning)
+                                    pulseScale
+                                else
+                                    1f
+                            )
                             .clip(CircleShape)
                             .background(
                                 Brush.radialGradient(
-                                    listOf(Color(0xFFFFD700), Color(0xFFD4AF37))
+                                    if (canSpin)
+                                        listOf(
+                                            GoldPure,
+                                            GoldRich,
+                                            GoldDim
+                                        )
+                                    else
+                                        listOf(
+                                            Color(0xFF444444),
+                                            Color(0xFF222222)
+                                        )
                                 )
                             )
-                            .border(6.dp, Color(0xFF8B0000), CircleShape)
-                            .shadow(14.dp, CircleShape)
+                            .border(
+                                5.dp,
+                                if (canSpin) CrimsonRich else Color(0xFF1A1A1A),
+                                CircleShape
+                            )
+                            .shadow(20.dp, CircleShape)
                             .clickable(enabled = !isSpinning) { doSpin() },
                         contentAlignment = Alignment.Center
                     ) {
+
                         if (isSpinning) {
+
                             CircularProgressIndicator(
-                                color = Color(0xFF8B0000),
+                                color = CrimsonRich,
                                 strokeWidth = 3.dp,
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(42.dp)
                             )
+
                         } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+
                                 Text(
                                     "SPIN",
-                                    color = Color(0xFF8B0000),
+                                    color = if (canSpin)
+                                        CrimsonRich
+                                    else
+                                        Color(0xFF999999),
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 22.sp,
-                                    letterSpacing = 1.5.sp
+                                    letterSpacing = 2.sp
                                 )
+
                                 if (spinData.canUseFreeSpin) {
+
+                                    Spacer(Modifier.height(2.dp))
+
                                     Text(
                                         "FREE",
-                                        color = Color(0xFF8B0000),
+                                        color = CrimsonRich,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 11.sp,
+                                        letterSpacing = 1.5.sp
+                                    )
+
+                                } else if (!canAfford) {
+
+                                    Spacer(Modifier.height(2.dp))
+
+                                    Text(
+                                        "NEED $serverPaidCost",
+                                        color = Color(0xFFFF6B6B),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 10.sp,
-                                        letterSpacing = 1.sp
+                                        fontSize = 9.sp,
+                                        letterSpacing = 0.5.sp
                                     )
                                 }
                             }
@@ -615,41 +903,90 @@ fun GiftScreen(
                     }
                 }
 
-                Spacer(Modifier.height(30.dp))
+                Spacer(Modifier.height(28.dp))
 
                 // ==============================================
-                // Bottom Action Button
+                // ACTION BUTTON
                 // ==============================================
+
+                val buttonText = when {
+                    isSpinning -> "SPINNING..."
+                    spinData.canUseFreeSpin -> "SPIN NOW — FREE"
+                    !canAfford -> "NEED $serverPaidCost COINS"
+                    else -> "SPIN — $serverPaidCost COINS"
+                }
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(60.dp)
-                        .scale(if (spinData.canUseFreeSpin && !isSpinning) pulseScale else 1f)
-                        .clip(RoundedCornerShape(30.dp))
+                        .height(64.dp)
+                        .scale(
+                            if (spinData.canUseFreeSpin && !isSpinning)
+                                pulseScale
+                            else
+                                1f
+                        )
+                        .clip(RoundedCornerShape(32.dp))
                         .background(
                             Brush.horizontalGradient(
-                                if (spinData.canUseFreeSpin)
-                                    listOf(Color(0xFF2E7D32), Color(0xFF4CAF50))
-                                else
-                                    listOf(Color(0xFF8B0000), Color(0xFFD32F2F))
+                                when {
+                                    spinData.canUseFreeSpin ->
+                                        listOf(EmeraldDeep, EmeraldBright, EmeraldDeep)
+
+                                    !canAfford ->
+                                        listOf(
+                                            Color(0xFF2A2A2A),
+                                            Color(0xFF1A1A1A)
+                                        )
+
+                                    else ->
+                                        listOf(CrimsonRich, CrimsonBright, CrimsonRich)
+                                }
                             )
                         )
-                        .border(3.dp, Color(0xFFD4AF37), RoundedCornerShape(30.dp))
+                        .border(
+                            2.dp,
+                            if (canSpin)
+                                GoldRich
+                            else
+                                Color(0xFF333333),
+                            RoundedCornerShape(32.dp)
+                        )
+                        .shadow(
+                            if (canSpin) 12.dp else 0.dp,
+                            RoundedCornerShape(32.dp)
+                        )
                         .clickable(enabled = !isSpinning) { doSpin() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        when {
-                            isSpinning -> "Spinning..."
-                            spinData.canUseFreeSpin -> "🎁 FREE SPIN"
-                            else -> "SPIN - $serverPaidCost Coins"
-                        },
-                        color = if (spinData.canUseFreeSpin) Color.White else Color(0xFFFFD700),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp,
-                        letterSpacing = 1.sp
-                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+
+                        if (!isSpinning && spinData.canUseFreeSpin) {
+                            Icon(
+                                Icons.Default.Bolt,
+                                null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                        }
+
+                        Text(
+                            buttonText,
+                            color = when {
+                                spinData.canUseFreeSpin -> Color.White
+                                !canAfford -> Color(0xFF999999)
+                                else -> GoldPure
+                            },
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            letterSpacing = 1.5.sp
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(40.dp))
@@ -657,7 +994,7 @@ fun GiftScreen(
         }
 
         // ==============================================
-        // Result Dialog
+        // RESULT DIALOG — premium
         // ==============================================
 
         val gift = wonGift
@@ -666,27 +1003,27 @@ fun GiftScreen(
             val isWin = gift.coinValue > 0
 
             AlertDialog(
-                onDismissRequest = { showResult = false },
-                containerColor = Color(0xFF2B0000),
-                shape = RoundedCornerShape(28.dp),
+                onDismissRequest = { },
+                containerColor = Color(0xFF1A0A0A),
+                shape = RoundedCornerShape(32.dp),
                 title = {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            if (isWin) "🎉 JACKPOT!" else "😅 Try Again!",
-                            color = Color(0xFFFFD700),
+                            if (isWin) "🎉 YOU WON!" else "😅 TRY AGAIN!",
+                            color = GoldPure,
                             fontWeight = FontWeight.ExtraBold,
                             textAlign = TextAlign.Center,
-                            fontSize = 26.sp
+                            fontSize = 24.sp,
+                            letterSpacing = 1.5.sp
                         )
                     }
                 },
                 text = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                        // Emoji with radial glow
                         Box(
                             modifier = Modifier
                                 .size(140.dp)
@@ -694,7 +1031,7 @@ fun GiftScreen(
                                 .background(
                                     Brush.radialGradient(
                                         listOf(
-                                            Color(0xFFFFD700).copy(alpha = 0.3f),
+                                            GoldPure.copy(alpha = 0.25f),
                                             Color.Transparent
                                         )
                                     )
@@ -704,30 +1041,36 @@ fun GiftScreen(
                             Text(gift.emoji, fontSize = 80.sp)
                         }
 
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(16.dp))
 
                         Text(
                             gift.name,
                             color = Color.White,
                             fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
                         )
 
                         if (isWin) {
+
                             Spacer(Modifier.height(16.dp))
+
                             Card(
                                 shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFFFD700).copy(alpha = 0.2f)
+                                    containerColor = GoldPure.copy(alpha = 0.15f)
                                 ),
-                                border = BorderStroke(1.5.dp, Color(0xFFFFD700))
+                                border = BorderStroke(1.5.dp, GoldRich)
                             ) {
                                 Text(
                                     "+${gift.coinValue} Coins",
-                                    color = Color(0xFFFFD700),
+                                    color = GoldPure,
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                                    modifier = Modifier.padding(
+                                        horizontal = 28.dp,
+                                        vertical = 12.dp
+                                    )
                                 )
                             }
                         }
@@ -737,21 +1080,22 @@ fun GiftScreen(
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
-                            .clip(RoundedCornerShape(16.dp))
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(28.dp))
                             .background(
                                 Brush.horizontalGradient(
-                                    listOf(Color(0xFFFFD700), Color(0xFFD4AF37))
+                                    listOf(GoldRich, GoldPure, GoldRich)
                                 )
                             )
                             .clickable { showResult = false },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            if (isWin) "Collect Reward" else "OK",
-                            color = Color(0xFF8B0000),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp
+                            if (isWin) "COLLECT REWARD" else "OK",
+                            color = Color(0xFF1A0A0A),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp,
+                            letterSpacing = 1.5.sp
                         )
                     }
                 }

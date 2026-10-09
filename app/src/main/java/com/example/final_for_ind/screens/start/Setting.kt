@@ -1,8 +1,10 @@
 package com.example.final_for_ind.screens.start
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -12,8 +14,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ArrowBack
@@ -35,11 +39,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 import com.example.final_for_ind.network.GameSessionManager
+import com.example.final_for_ind.utils.SoundManager
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +58,9 @@ fun SettingScreen(
 ) {
     val context = LocalContext.current
 
-    // 👇 BLACK RED GRADIENT
+    // ✅ FIX #4: Handle hardware back + swipe back
+    BackHandler(onBack = onBack)
+
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
@@ -76,26 +85,17 @@ fun SettingScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     // ==========================================================
-    // SOUND EFFECTS — PERSISTED
-    //
-    // Read initial value from SharedPreferences.
-    // Save on every change.
+    // SOUND EFFECTS
     // ==========================================================
 
     var soundEnabled by remember {
         mutableStateOf(
-            prefs.getBoolean(
-                "sound_enabled",
-                true
-            )
+            prefs.getBoolean("sound_enabled", true)
         )
     }
 
     // ==========================================================
-    // SERVER CONFIG — support contacts, terms, version
-    //
-    // Fetched once on first composition.
-    // Defaults used until server responds.
+    // SERVER CONFIG
     // ==========================================================
 
     var supportWhatsapp by remember {
@@ -116,40 +116,32 @@ fun SettingScreen(
         )
     }
 
+    // ✅ FIX #5: App version state
+    var appVersion by remember {
+        mutableStateOf("1.0.0")
+    }
+
     LaunchedEffect(Unit) {
-
         try {
-
-            val sessionManager =
-                GameSessionManager(context)
-
-            val config =
-                sessionManager.fetchAppConfig()
+            val sessionManager = GameSessionManager(context)
+            val config = sessionManager.fetchAppConfig()
 
             if (config != null) {
-
-                supportWhatsapp =
-                    config.optString(
-                        "support_whatsapp",
-                        supportWhatsapp
-                    )
-
-                supportTelegram =
-                    config.optString(
-                        "support_telegram",
-                        supportTelegram
-                    )
-
-                termsText =
-                    config.optString(
-                        "terms_text",
-                        termsText
-                    )
+                supportWhatsapp = config.optString(
+                    "support_whatsapp", supportWhatsapp
+                )
+                supportTelegram = config.optString(
+                    "support_telegram", supportTelegram
+                )
+                termsText = config.optString(
+                    "terms_text", termsText
+                )
+                appVersion = config.optString(
+                    "app_version", appVersion
+                )
             }
-
         } catch (e: Exception) {
-
-            // Silent fail — defaults already set
+            // Silent fail
         }
     }
 
@@ -158,7 +150,12 @@ fun SettingScreen(
             .fillMaxSize()
             .background(gradient)
     ) {
-        Column(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                // ✅ FIX #6: Vertical scroll support
+                .verticalScroll(rememberScrollState())
+        ) {
 
             TopAppBar(
                 title = {
@@ -205,10 +202,7 @@ fun SettingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .shadow(
-                        20.dp,
-                        RoundedCornerShape(24.dp)
-                    ),
+                    .shadow(20.dp, RoundedCornerShape(24.dp)),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = Color.Transparent
@@ -252,19 +246,15 @@ fun SettingScreen(
                         showSwitch = true,
                         switchState = soundEnabled,
                         onSwitchChange = { newValue ->
-
                             soundEnabled = newValue
-
-                            // ------------------------------------
-                            // PERSIST TO SHARED PREFERENCES
-                            // ------------------------------------
-
                             prefs.edit()
-                                .putBoolean(
-                                    "sound_enabled",
-                                    newValue
-                                )
+                                .putBoolean("sound_enabled", newValue)
                                 .apply()
+
+                            // ✅ FIX #3: Test sound on enable
+                            if (newValue) {
+                                SoundManager.playButtonClick()
+                            }
                         }
                     )
 
@@ -322,10 +312,26 @@ fun SettingScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ✅ FIX #5: Version display
+            Text(
+                text = "Version $appVersion",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                textAlign = TextAlign.Center
+            )
         }
 
-        if (showLogoutDialog) {
+        // ==========================================================
+        // LOGOUT DIALOG
+        // ==========================================================
 
+        if (showLogoutDialog) {
             PremiumDialog(
                 title = "Logout",
                 message = "Kya tum sach mein logout karna chahte ho?",
@@ -339,8 +345,11 @@ fun SettingScreen(
             )
         }
 
-        if (showSupportDialog) {
+        // ==========================================================
+        // SUPPORT DIALOG
+        // ==========================================================
 
+        if (showSupportDialog) {
             PremiumDialog(
                 title = "Contact Support",
                 message = "Kahan se contact karna chahte ho?",
@@ -349,28 +358,21 @@ fun SettingScreen(
                 confirmColor = Color(0xFF25D366),
                 dismissColor = Color(0xFF0088cc),
                 onConfirm = {
-
-                    openWhatsApp(
-                        context,
-                        supportWhatsapp
-                    )
-
+                    openWhatsApp(context, supportWhatsapp)
                     showSupportDialog = false
                 },
                 onDismiss = {
-
-                    openTelegram(
-                        context,
-                        supportTelegram
-                    )
-
+                    openTelegram(context, supportTelegram)
                     showSupportDialog = false
                 }
             )
         }
 
-        if (showTermsDialog) {
+        // ==========================================================
+        // TERMS DIALOG
+        // ==========================================================
 
+        if (showTermsDialog) {
             AlertDialog(
                 onDismissRequest = { showTermsDialog = false },
                 containerColor = Color(0xFF1A0000),
@@ -383,12 +385,19 @@ fun SettingScreen(
                     )
                 },
                 text = {
-                    Text(
-                        termsText,
-                        color = Color.White.copy(alpha = 0.8f),
-                        lineHeight = 24.sp,
-                        fontSize = 14.sp
-                    )
+                    // ✅ FIX #2: Scrollable long text
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            termsText,
+                            color = Color.White.copy(alpha = 0.8f),
+                            lineHeight = 24.sp,
+                            fontSize = 14.sp
+                        )
+                    }
                 },
                 confirmButton = {
                     TextButton(
@@ -406,6 +415,11 @@ fun SettingScreen(
     }
 }
 
+
+// ==========================================================
+// PREMIUM SETTING ITEM
+// ==========================================================
+
 @Composable
 fun PremiumSettingItem(
     icon: ImageVector,
@@ -421,7 +435,8 @@ fun PremiumSettingItem(
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = tween(100)
+        animationSpec = tween(100),
+        label = "settingItemScale"
     )
 
     Row(
@@ -503,6 +518,11 @@ fun PremiumSettingItem(
     }
 }
 
+
+// ==========================================================
+// PREMIUM DIALOG
+// ==========================================================
+
 @Composable
 fun PremiumDialog(
     title: String,
@@ -550,17 +570,90 @@ fun PremiumDialog(
     )
 }
 
+
+// ==========================================================
+// OPEN WHATSAPP — with crash protection
+// ==========================================================
+
 fun openWhatsApp(context: Context, number: String) {
-    val url = "https://wa.me/${number.replace("+", "").replace(" ", "")}"
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-    context.startActivity(intent)
+    val cleaned = number.replace("+", "").replace(" ", "")
+    val url = "https://wa.me/$cleaned"
+
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+
+    } catch (e: ActivityNotFoundException) {
+        // WhatsApp not installed — open Play Store
+        try {
+            val playIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("market://details?id=com.whatsapp")
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(playIntent)
+        } catch (e2: Exception) {
+            // Play Store app missing too — open browser
+            try {
+                val webIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://play.google.com/store/apps/details?id=com.whatsapp")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(webIntent)
+            } catch (_: Exception) { }
+        }
+
+    } catch (e: Exception) {
+        // Any other error
+    }
 }
+
+
+// ==========================================================
+// OPEN TELEGRAM — with crash protection
+// ==========================================================
 
 fun openTelegram(context: Context, username: String) {
     val url = "https://t.me/$username"
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-    context.startActivity(intent)
+
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+
+    } catch (e: ActivityNotFoundException) {
+        // Telegram not installed — open Play Store
+        try {
+            val playIntent = Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("market://details?id=org.telegram.messenger")
+            ).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(playIntent)
+        } catch (e2: Exception) {
+            try {
+                val webIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://play.google.com/store/apps/details?id=org.telegram.messenger")
+                ).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(webIntent)
+            } catch (_: Exception) { }
+        }
+
+    } catch (e: Exception) {
+        // Any other error
+    }
 }
+
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
