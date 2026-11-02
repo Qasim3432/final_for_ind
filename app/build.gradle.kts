@@ -6,24 +6,36 @@ plugins {
 
 android {
     namespace = "com.example.final_for_ind"
-    compileSdk {
-        version = release(37) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 37 // Standardized for stability
 
     defaultConfig {
         applicationId = "com.example.final_for_ind"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ✅ NEW — Server config
+        buildConfigField("String", "BASE_URL", "\"http://192.168.18.57:8090/\"")
+        buildConfigField("String", "WS_BASE_URL", "\"ws://192.168.18.57:8090/\"")
+
+        // ✅ NEW — Agora App ID (Voice Call ke liye)
+        buildConfigField("String", "AGORA_APP_ID", "\"56000a15a97e4ac1af999850b86435ac\"")
     }
 
     buildTypes {
+        debug {
+            // ✅ NEW — Debug ke liye (local testing)
+            buildConfigField("String", "BASE_URL", "\"http://192.168.18.57:8090/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"ws://192.168.18.57:8090/\"")
+        }
         release {
+            // ⚠️ Production pe ye change karo (domain ready hone pe)
+            buildConfigField("String", "BASE_URL", "\"https://api.yourdomain.com/\"")
+            buildConfigField("String", "WS_BASE_URL", "\"wss://api.yourdomain.com/\"")
+
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -31,12 +43,15 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     buildFeatures {
         compose = true
+        buildConfig = true         // ✅ NEW — REQUIRED for BuildConfig
     }
 }
 
@@ -65,6 +80,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.agora.rtc:voice-sdk:4.7.0")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation(platform("com.google.firebase:firebase-bom:33.2.0"))
@@ -73,8 +89,4 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.firebase:firebase-analytics")
-
-
-
-
 }

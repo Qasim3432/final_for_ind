@@ -2,7 +2,9 @@ package com.example.final_for_ind.network
 
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import com.example.final_for_ind.AppConfig
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,6 +40,13 @@ data class GiftConfig(
 )
 
 
+data class SyncResult(
+    val success: Boolean,
+    val errorMessage: String? = null,
+    val profilePicUrl: String? = null
+)
+
+
 class GameSessionManager(
     private val context: Context
 ) {
@@ -56,7 +65,31 @@ class GameSessionManager(
             .toMediaType()
 
     private val baseUrl =
-        "http://192.168.18.55:8090/"
+        AppConfig.BASE_URL
+
+    // ✅ Store last auth error so UI can display it
+    var lastAuthError: String? = null
+
+
+    // =========================================================
+    // AUTH HEADER HELPER
+    // =========================================================
+
+    private fun Request.Builder.withAuth(): Request.Builder {
+
+        val token =
+            getEmailAuthToken()
+
+        if (!token.isNullOrBlank()) {
+
+            this.addHeader(
+                "X-Auth-Token",
+                token
+            )
+        }
+
+        return this
+    }
 
 
     // =========================================================
@@ -97,6 +130,32 @@ class GameSessionManager(
             .apply()
 
         return generatedToken
+    }
+
+
+    // =========================================================
+    // DEVICE FINGERPRINT
+    // =========================================================
+
+    fun getDeviceFingerprint(): String {
+
+        val androidId = try {
+            Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ANDROID_ID
+            ) ?: "unknown"
+        } catch (e: Exception) {
+            Log.e("FINGERPRINT", "Failed to read Android ID", e)
+            "unknown"
+        }
+
+        val manufacturer = Build.MANUFACTURER
+            .replace("\\s+".toRegex(), "_")
+
+        val model = Build.MODEL
+            .replace("\\s+".toRegex(), "_")
+
+        return "${androidId}_${manufacturer}_${model}"
     }
 
 
@@ -171,17 +230,46 @@ class GameSessionManager(
             .remove("email_auth_token")
             .remove("email_user_email")
             .remove("email_user_name")
+            .remove("email_user_country")
             .apply()
     }
 
 
     // =========================================================
-    // SEND OTP
+    // ✅ NEW: COUNTRY (region lock — set once at signup)
     // =========================================================
 
-    suspend fun sendOtpEmail(
-        email: String
-    ): Boolean = withContext(Dispatchers.IO) {
+    fun saveCountry(country: String) {
+
+        val normalized = country.trim().uppercase()
+
+        if (normalized == "PK" || normalized == "IN") {
+            sharedPreferences.edit()
+                .putString(
+                    "email_user_country",
+                    normalized
+                )
+                .apply()
+        }
+    }
+
+    fun getSavedCountry(): String {
+
+        return sharedPreferences.getString(
+            "email_user_country",
+            "PK"
+        ) ?: "PK"
+    }
+
+
+    // =========================================================
+    // CHECK USERNAME AVAILABILITY  (public)
+    // Returns: true = available, false = taken, null = error
+    // =========================================================
+
+    suspend fun checkUsernameAvailability(
+        username: String
+    ): Boolean? = withContext(Dispatchers.IO) {
 
         val jsonBody =
             JSONObject()
@@ -189,30 +277,30 @@ class GameSessionManager(
         try {
 
             jsonBody.put(
-                "email",
-                email
+                "username",
+                username
             )
 
         } catch (e: Exception) {
 
             Log.e(
-                "OTP",
+                "USERNAME_CHECK",
                 "Failed to build payload",
                 e
             )
 
-            return@withContext false
+            return@withContext null
         }
 
         Log.d(
-            "OTP",
-            "Requesting OTP for $email"
+            "USERNAME_CHECK",
+            "Checking username=$username"
         )
 
         val request =
             Request.Builder()
                 .url(
-                    "${baseUrl}api/auth/send-otp/"
+                    "${baseUrl}api/auth/check-username/"
                 )
                 .post(
                     jsonBody.toString()
@@ -228,78 +316,134 @@ class GameSessionManager(
                 .execute()
                 .use { response ->
 
-                    val responseBody =
+                    val body =
                         response.body?.string()
                             ?: ""
 
                     Log.d(
-                        "OTP",
-                        "HTTP ${response.code}: $responseBody"
+                        "USERNAME_CHECK",
+                        "HTTP ${response.code}: $body"
                     )
 
                     if (!response.isSuccessful) {
-                        return@withContext false
+                        return@withContext null
                     }
 
                     val json =
-                        JSONObject(responseBody)
+                        JSONObject(body)
 
-                    return@withContext (
-                            json.optString("status")
-                                    == "success"
-                            )
+                    if (
+                        json.optString("status")
+                        != "success"
+                    ) {
+                        return@withContext null
+                    }
+
+                    return@withContext json.optBoolean(
+                        "available",
+                        false
+                    )
                 }
 
         } catch (e: Exception) {
 
             Log.e(
-                "OTP",
-                "Send OTP failed",
+                "USERNAME_CHECK",
+                "Network error",
                 e
             )
 
+            return@withContext null
+        }
+    }
+
+
+    // =========================================================
+    // ✅ SEND OTP  (public) — country param added
+    // =========================================================
+
+    suspend fun sendOtpEmail(
+        email: String,
+        username: String,
+        country: String
+    ): Boolean = withContext(Dispatchers.IO) {
+
+        lastAuthError = null
+        val fingerprint = getDeviceFingerprint()
+        val jsonBody = JSONObject()
+
+        try {
+            jsonBody.put("email", email)
+            jsonBody.put("username", username)
+            jsonBody.put("device_fingerprint", fingerprint)
+            jsonBody.put("country", country.trim().uppercase())
+        } catch (e: Exception) {
+            Log.e("OTP", "Failed to build payload", e)
+            return@withContext false
+        }
+
+        Log.d(
+            "OTP",
+            "Requesting OTP for $email | user=$username | country=$country | fp=${fingerprint.take(12)}..."
+        )
+
+        val request =
+            Request.Builder()
+                .url("${baseUrl}api/auth/send-otp/")
+                .post(jsonBody.toString().toRequestBody(jsonMediaType))
+                .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+
+                val responseBody = response.body?.string() ?: ""
+                Log.d("OTP", "HTTP ${response.code}: $responseBody")
+
+                if (!response.isSuccessful) {
+                    try {
+                        val errJson = JSONObject(responseBody)
+                        if (errJson.optString("code") == "USERNAME_TAKEN") {
+                            lastAuthError = errJson.optString("message")
+                        }
+                    } catch (_: Exception) { }
+
+                    return@withContext false
+                }
+
+                val json = JSONObject(responseBody)
+                return@withContext (json.optString("status") == "success")
+            }
+        } catch (e: Exception) {
+            Log.e("OTP", "Send OTP failed", e)
             false
         }
     }
 
 
     // =========================================================
-    // VERIFY EMAIL LOGIN
+    // ✅ VERIFY EMAIL LOGIN  (public) — country param added
     // =========================================================
 
     suspend fun verifyEmailWithBackend(
         email: String,
         username: String,
-        code: String
+        code: String,
+        country: String
     ): Boolean = withContext(Dispatchers.IO) {
 
-        val deviceId =
-            getOrCreateUserToken()
-
-        val jsonBody =
-            JSONObject()
+        lastAuthError = null
+        val deviceId = getOrCreateUserToken()
+        val fingerprint = getDeviceFingerprint()
+        val jsonBody = JSONObject()
 
         try {
 
-            jsonBody.put(
-                "email",
-                email
-            )
-
-            jsonBody.put(
-                "username",
-                username
-            )
-
-            jsonBody.put(
-                "device_id",
-                deviceId
-            )
-
-            jsonBody.put(
-                "code",
-                code
-            )
+            jsonBody.put("email", email)
+            jsonBody.put("username", username)
+            jsonBody.put("device_id", deviceId)
+            jsonBody.put("device_fingerprint", fingerprint)
+            jsonBody.put("code", code)
+            jsonBody.put("country", country.trim().uppercase())
 
         } catch (e: Exception) {
 
@@ -314,7 +458,7 @@ class GameSessionManager(
 
         Log.d(
             "EMAIL_AUTH",
-            "Verifying email=$email device=$deviceId"
+            "Verifying email=$email device=$deviceId | country=$country | fp=${fingerprint.take(12)}..."
         )
 
         val request =
@@ -346,6 +490,24 @@ class GameSessionManager(
                     )
 
                     if (!response.isSuccessful) {
+
+                        try {
+                            val errJson = JSONObject(responseBody)
+                            val errCode = errJson.optString("code", "")
+                            val errMsg = errJson.optString("message", "Verification failed")
+
+                            if (errCode == "DEVICE_MISMATCH") {
+                                lastAuthError = "This account is already registered on another device."
+                                Log.e("EMAIL_AUTH", "🚫 DEVICE_MISMATCH")
+                            } else if (errCode == "USERNAME_TAKEN") {
+                                lastAuthError = errMsg
+                                Log.e("EMAIL_AUTH", "🚫 USERNAME_TAKEN: $errMsg")
+                            } else if (errCode == "INVALID_COUNTRY") {
+                                lastAuthError = errMsg
+                                Log.e("EMAIL_AUTH", "🚫 INVALID_COUNTRY: $errMsg")
+                            }
+                        } catch (_: Exception) { }
+
                         return@withContext false
                     }
 
@@ -385,6 +547,12 @@ class GameSessionManager(
                         username
                     )
 
+                    // ✅ Save server-authoritative country
+                    val returnedCountry = json.optString("country", country)
+                    if (returnedCountry == "PK" || returnedCountry == "IN") {
+                        saveCountry(returnedCountry)
+                    }
+
                     val userId =
                         userObj?.optInt(
                             "user_id",
@@ -420,7 +588,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // LOGOUT USER
+    // LOGOUT USER  (auth)
     // =========================================================
 
     suspend fun logoutUser(): Boolean = withContext(Dispatchers.IO) {
@@ -459,6 +627,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/auth/logout/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -499,7 +668,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // MATCHMAKING
+    // MATCHMAKING  (auth)
     // =========================================================
 
     suspend fun registerAndJoinMatch(
@@ -549,6 +718,7 @@ class GameSessionManager(
         val request =
             Request.Builder()
                 .url("${baseUrl}initialize-game/")
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -638,7 +808,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // PLAY WITH FRIENDS — CREATE ROOM
+    // PLAY WITH FRIENDS — CREATE ROOM  (auth)
     // =========================================================
 
     suspend fun createFriendRoom(
@@ -707,6 +877,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/game/create-room/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -783,7 +954,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // PLAY WITH FRIENDS — JOIN ROOM
+    // PLAY WITH FRIENDS — JOIN ROOM  (auth)
     // =========================================================
 
     suspend fun joinFriendRoom(
@@ -845,6 +1016,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/game/join-room/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -921,7 +1093,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // PLAY WITH FRIENDS — CANCEL ROOM
+    // PLAY WITH FRIENDS — CANCEL ROOM  (auth)
     // =========================================================
 
     suspend fun cancelFriendRoom(
@@ -967,6 +1139,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/game/cancel-room/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -1007,18 +1180,29 @@ class GameSessionManager(
 
 
     // =========================================================
-    // PLAY WITH FRIENDS — GET ROOM STATUS
+    // PLAY WITH FRIENDS — GET ROOM STATUS  (auth)
     // =========================================================
 
     suspend fun getRoomStatus(
         gameId: String
     ): JSONObject? = withContext(Dispatchers.IO) {
 
+        val userToken =
+            getOrCreateUserToken()
+
+        val url =
+            "${baseUrl}api/game/room-status/$gameId/" +
+                    "?player_token=$userToken"
+
+        Log.d(
+            "FRIENDS",
+            "GET room-status: $url"
+        )
+
         val request =
             Request.Builder()
-                .url(
-                    "${baseUrl}api/game/room-status/$gameId/"
-                )
+                .url(url)
+                .withAuth()
                 .get()
                 .build()
 
@@ -1031,6 +1215,11 @@ class GameSessionManager(
                     val body =
                         response.body?.string()
                             ?: ""
+
+                    Log.d(
+                        "FRIENDS",
+                        "room-status HTTP ${response.code}: $body"
+                    )
 
                     if (!response.isSuccessful) {
                         return@withContext null
@@ -1053,7 +1242,12 @@ class GameSessionManager(
 
 
     // =========================================================
-    // BALANCE
+    // BALANCE  (auth)
+    //
+    // ✅ FIX: .withAuth() add kiya
+    // Pehle ye endpoint public GET tha — koi bhi kisi ka bhi
+    // balance fetch kar sakta tha agar device_token pata ho.
+    // Ab backend @require_device_owner + middleware check karta hai.
     // =========================================================
 
     suspend fun fetchUserBalanceFromServer(
@@ -1065,6 +1259,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/deposit/balance/$deviceToken/"
                 )
+                .withAuth()   // ✅ NEW
                 .get()
                 .build()
 
@@ -1115,7 +1310,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // ADMIN PAYMENT DETAILS
+    // ✅ ADMIN PAYMENT DETAILS — region-filtered via device_token
     // =========================================================
 
     suspend fun fetchAdminPaymentDetails():
@@ -1125,11 +1320,16 @@ class GameSessionManager(
             val resultMap =
                 mutableMapOf<String, Pair<String, String>>()
 
+            val userToken =
+                getOrCreateUserToken()
+
             val request =
                 Request.Builder()
                     .url(
-                        "${baseUrl}api/deposit/methods/"
+                        "${baseUrl}api/deposit/methods/" +
+                                "?device_token=$userToken"
                     )
+                    .withAuth()
                     .get()
                     .build()
 
@@ -1190,11 +1390,12 @@ class GameSessionManager(
 
 
     // =========================================================
-    // DEPOSIT NOTIFICATION
+    // DEPOSIT NOTIFICATION  (auth)
     // =========================================================
 
     suspend fun submitDepositNotification(
-        amount: Int,
+        localAmount: Float,
+        currency: String,
         method: String,
         senderName: String
     ): Boolean = withContext(Dispatchers.IO) {
@@ -1213,8 +1414,13 @@ class GameSessionManager(
             )
 
             jsonBody.put(
-                "amount",
-                amount
+                "local_amount",
+                localAmount
+            )
+
+            jsonBody.put(
+                "currency",
+                currency
             )
 
             jsonBody.put(
@@ -1243,6 +1449,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/deposit/submit/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -1274,7 +1481,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // TRANSACTION HISTORY
+    // TRANSACTION HISTORY  (auth)
     // =========================================================
 
     suspend fun fetchTransactionHistory(
@@ -1289,6 +1496,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/deposit/history/$deviceToken/"
                 )
+                .withAuth()
                 .get()
                 .build()
 
@@ -1356,7 +1564,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL NOTIFICATION (legacy)
+    // WITHDRAWAL NOTIFICATION (legacy)  (auth)
     // =========================================================
 
     suspend fun submitWithdrawalNotification(
@@ -1415,6 +1623,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/withdraw/submit/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -1440,7 +1649,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // JOIN WAGER MATCH
+    // JOIN WAGER MATCH  (auth)
     // =========================================================
 
     suspend fun joinWagerMatch(
@@ -1502,6 +1711,7 @@ class GameSessionManager(
         val request =
             Request.Builder()
                 .url("${baseUrl}api/wager/join/")
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -1558,14 +1768,7 @@ class GameSessionManager(
                         return@withContext jsonResponse
                     }
 
-                    if (
-                        jsonResponse.optString("status")
-                        == "error"
-                        || jsonResponse.optBoolean(
-                            "success",
-                            true
-                        ) == false
-                    ) {
+                    if (jsonResponse.optString("status") == "error" || !jsonResponse.optBoolean("success", true)) {
 
                         Log.e(
                             "WAGER",
@@ -1613,7 +1816,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // REFERRAL CODE
+    // REFERRAL CODE  (public GET)
     // =========================================================
 
     suspend fun fetchUserReferralCode(
@@ -1658,7 +1861,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // REFERRAL DASHBOARD
+    // REFERRAL DASHBOARD  (auth)
     // =========================================================
 
     suspend fun fetchReferralDashboard(
@@ -1671,6 +1874,7 @@ class GameSessionManager(
                     "${baseUrl}api/user/referral-dashboard/" +
                             "$deviceToken/"
                 )
+                .withAuth()
                 .get()
                 .build()
 
@@ -1705,7 +1909,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // APPLY REFERRAL
+    // APPLY REFERRAL  (auth)
     // =========================================================
 
     suspend fun verifyAndApplyReferral(
@@ -1744,6 +1948,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/verify-referral/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -1782,7 +1987,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // SYNC USER PROFILE
+    // SYNC USER PROFILE  (auth)
     // =========================================================
 
     suspend fun syncUserProfile(
@@ -1790,7 +1995,7 @@ class GameSessionManager(
         nickname: String,
         email: String,
         profilePicFile: java.io.File? = null
-    ): Boolean = withContext(Dispatchers.IO) {
+    ): SyncResult = withContext(Dispatchers.IO) {
 
         val requestBodyBuilder =
             okhttp3.MultipartBody.Builder()
@@ -1829,6 +2034,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/update-profile/"
                 )
+                .withAuth()
                 .post(requestBodyBuilder.build())
                 .build()
 
@@ -1848,7 +2054,21 @@ class GameSessionManager(
                     )
 
                     if (!response.isSuccessful) {
-                        return@withContext false
+
+                        val errorMsg = try {
+                            JSONObject(responseBody)
+                                .optString("error", "")
+                                .ifBlank {
+                                    "Update failed (${response.code})"
+                                }
+                        } catch (_: Exception) {
+                            "Update failed (${response.code})"
+                        }
+
+                        return@withContext SyncResult(
+                            success = false,
+                            errorMessage = errorMsg
+                        )
                     }
 
                     val json =
@@ -1858,33 +2078,38 @@ class GameSessionManager(
                         json.optString(
                             "profile_pic_url",
                             ""
+                        ).takeIf { it.isNotBlank() }
+
+                    val editor = sharedPreferences.edit()
+
+                    if (picUrl != null) {
+                        editor.putString(
+                            "profile_pic_url",
+                            picUrl
                         )
-
-                    if (picUrl.isNotBlank()) {
-
-                        sharedPreferences.edit()
-                            .putString(
-                                "profile_pic_url",
-                                picUrl
-                            )
-                            .apply()
                     }
 
-                    sharedPreferences.edit()
-                        .putString(
-                            "email_user_name",
-                            nickname
-                        )
-                        .putString(
-                            "email_user_email",
-                            email
-                        )
-                        .apply()
+                    editor.putString(
+                        "email_user_name",
+                        nickname
+                    )
+                    editor.putString(
+                        "email_user_email",
+                        email
+                    )
+                    editor.apply()
 
-                    return@withContext (
-                            json.optString("status")
-                                    == "success"
+                    val success = (
+                            json.optString("status") == "success"
                             )
+
+                    return@withContext SyncResult(
+                        success = success,
+                        errorMessage = if (!success)
+                            json.optString("error", "Update failed")
+                        else null,
+                        profilePicUrl = picUrl
+                    )
                 }
 
         } catch (e: Exception) {
@@ -1895,13 +2120,16 @@ class GameSessionManager(
                 e
             )
 
-            return@withContext false
+            return@withContext SyncResult(
+                success = false,
+                errorMessage = "Network error. Please check your connection."
+            )
         }
     }
 
 
     // =========================================================
-    // GIFT CONFIG
+    // GIFT CONFIG  (public)
     // =========================================================
 
     suspend fun fetchGiftConfig():
@@ -1968,7 +2196,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // SPIN STATUS
+    // SPIN STATUS  (auth)
     // =========================================================
 
     suspend fun getSpinStatus():
@@ -2006,6 +2234,7 @@ class GameSessionManager(
         val request =
             Request.Builder()
                 .url("${baseUrl}api/gift/status/")
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2048,7 +2277,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // APP CONFIG
+    // APP CONFIG  (public)
     // =========================================================
 
     suspend fun fetchAppConfig():
@@ -2096,7 +2325,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // SUBMIT SPIN
+    // SUBMIT SPIN  (auth)
     // =========================================================
 
     suspend fun submitSpin():
@@ -2134,6 +2363,7 @@ class GameSessionManager(
         val request =
             Request.Builder()
                 .url("${baseUrl}api/gift/spin/")
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2176,7 +2406,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL PIN — STATUS
+    // WITHDRAWAL PIN — STATUS  (auth)
     // =========================================================
 
     suspend fun getPinStatus():
@@ -2211,6 +2441,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/pin/status/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2257,7 +2488,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL PIN — SET
+    // WITHDRAWAL PIN — SET  (auth)
     // =========================================================
 
     suspend fun setWithdrawalPin(
@@ -2304,6 +2535,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/pin/set/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2346,7 +2578,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL PIN — CHANGE
+    // WITHDRAWAL PIN — CHANGE  (auth)
     // =========================================================
 
     suspend fun changeWithdrawalPin(
@@ -2399,6 +2631,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/pin/change/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2441,7 +2674,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL PIN — RESET STEP 1
+    // WITHDRAWAL PIN — RESET STEP 1  (auth)
     // =========================================================
 
     suspend fun requestPinReset():
@@ -2476,6 +2709,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/pin/reset-request/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2518,7 +2752,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL PIN — RESET STEP 2
+    // WITHDRAWAL PIN — RESET STEP 2  (auth)
     // =========================================================
 
     suspend fun verifyPinReset(
@@ -2571,6 +2805,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/pin/reset-verify/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2613,7 +2848,13 @@ class GameSessionManager(
 
 
     // =========================================================
-    // WITHDRAWAL SUBMIT WITH PIN
+    // WITHDRAWAL SUBMIT WITH PIN  (auth)
+    //
+    // ✅ FIX: client_request_id — idempotency key add kiya
+    //
+    // Agar user "Submit" button ko double-tap kare, ya network
+    // retry ho jaye, to backend same UUID detect karke same
+    // response return karta hai — coins dobara deduct nahi hote.
     // =========================================================
 
     suspend fun submitWithdrawalWithPin(
@@ -2626,6 +2867,10 @@ class GameSessionManager(
 
         val userToken =
             getOrCreateUserToken()
+
+        // ✅ NEW: Idempotency key
+        val clientRequestId =
+            UUID.randomUUID().toString()
 
         val jsonBody =
             JSONObject()
@@ -2662,6 +2907,12 @@ class GameSessionManager(
                 pin
             )
 
+            // ✅ NEW
+            jsonBody.put(
+                "client_request_id",
+                clientRequestId
+            )
+
         } catch (e: Exception) {
 
             Log.e(
@@ -2678,6 +2929,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/withdraw/submit/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -2720,7 +2972,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // GAME HISTORY
+    // GAME HISTORY  (auth)
     // =========================================================
 
     suspend fun fetchGameHistory(
@@ -2734,6 +2986,7 @@ class GameSessionManager(
                     "${baseUrl}api/user/game-history/" +
                             "$deviceToken/?limit=$limit"
                 )
+                .withAuth()
                 .get()
                 .build()
 
@@ -2773,7 +3026,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // LEADERBOARD
+    // LEADERBOARD  (public GET)
     // =========================================================
 
     suspend fun fetchLeaderboard(
@@ -2832,7 +3085,104 @@ class GameSessionManager(
 
 
     // =========================================================
-    // DAILY BONUS — STATUS
+    // LEADERBOARD — PENDING REWARDS  (auth)
+    // =========================================================
+
+    suspend fun fetchPendingRewards(): JSONObject? =
+        withContext(Dispatchers.IO) {
+
+            val userToken = getOrCreateUserToken()
+
+            val request =
+                Request.Builder()
+                    .url(
+                        "${baseUrl}api/leaderboard/pending-rewards/" +
+                                "?device_token=$userToken"
+                    )
+                    .withAuth()
+                    .get()
+                    .build()
+
+            try {
+                client.newCall(request)
+                    .execute()
+                    .use { response ->
+
+                        val body = response.body?.string() ?: ""
+
+                        Log.d(
+                            "PENDING_REWARDS",
+                            "HTTP ${response.code}: $body"
+                        )
+
+                        if (!response.isSuccessful) {
+                            return@withContext null
+                        }
+
+                        return@withContext JSONObject(body)
+                    }
+
+            } catch (e: Exception) {
+                Log.e("PENDING_REWARDS", "Fetch failed", e)
+                null
+            }
+        }
+
+
+    // =========================================================
+    // LEADERBOARD — CLAIM REWARD  (auth)
+    // =========================================================
+
+    suspend fun claimLeaderboardReward(
+        claimId: Int
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken = getOrCreateUserToken()
+
+        val jsonBody = JSONObject()
+
+        try {
+            jsonBody.put("device_token", userToken)
+            jsonBody.put("claim_id", claimId)
+        } catch (e: Exception) {
+            Log.e("CLAIM_REWARD", "Build failed", e)
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url("${baseUrl}api/leaderboard/claim-reward/")
+                .withAuth()
+                .post(
+                    jsonBody.toString()
+                        .toRequestBody(jsonMediaType)
+                )
+                .build()
+
+        try {
+            client.newCall(request)
+                .execute()
+                .use { response ->
+
+                    val body = response.body?.string() ?: ""
+
+                    Log.d(
+                        "CLAIM_REWARD",
+                        "HTTP ${response.code}: $body"
+                    )
+
+                    return@withContext JSONObject(body)
+                }
+
+        } catch (e: Exception) {
+            Log.e("CLAIM_REWARD", "Network error", e)
+            null
+        }
+    }
+
+
+    // =========================================================
+    // DAILY BONUS — STATUS  (auth)
     // =========================================================
 
     suspend fun fetchDailyBonusStatus(
@@ -2845,6 +3195,7 @@ class GameSessionManager(
                     "${baseUrl}api/user/daily-bonus/status/" +
                             "$deviceToken/"
                 )
+                .withAuth()
                 .get()
                 .build()
 
@@ -2879,7 +3230,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // DAILY BONUS — CLAIM
+    // DAILY BONUS — CLAIM  (auth)
     // =========================================================
 
     suspend fun claimDailyBonus(): JSONObject? =
@@ -2909,6 +3260,7 @@ class GameSessionManager(
                     .url(
                         "${baseUrl}api/user/daily-bonus/claim/"
                     )
+                    .withAuth()
                     .post(
                         jsonBody.toString()
                             .toRequestBody(jsonMediaType)
@@ -2942,7 +3294,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // SPIN HISTORY
+    // SPIN HISTORY  (auth)
     // =========================================================
 
     suspend fun fetchSpinHistory(
@@ -2956,6 +3308,7 @@ class GameSessionManager(
                     "${baseUrl}api/user/spin-history/" +
                             "$deviceToken/?limit=$limit"
                 )
+                .withAuth()
                 .get()
                 .build()
 
@@ -2990,7 +3343,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // SEND USER LOCATION  ← NEW
+    // SEND USER LOCATION  (auth)
     // =========================================================
 
     suspend fun sendUserLocation(
@@ -3035,6 +3388,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/user/location/"
                 )
+                .withAuth()
                 .post(
                     jsonBody.toString()
                         .toRequestBody(
@@ -3075,7 +3429,7 @@ class GameSessionManager(
 
 
     // =========================================================
-    // FETCH WITHDRAWAL STATUS  ← NEW
+    // FETCH WITHDRAWAL STATUS  (auth)
     // =========================================================
 
     suspend fun fetchWithdrawalStatus(
@@ -3087,6 +3441,7 @@ class GameSessionManager(
                 .url(
                     "${baseUrl}api/withdraw/status/$deviceToken/"
                 )
+                .withAuth()
                 .get()
                 .build()
 
@@ -3121,6 +3476,54 @@ class GameSessionManager(
             )
 
             null
+        }
+    }
+
+
+    // =========================================================
+    // ✅ NEW: AGORA VOICE TOKEN
+    // =========================================================
+
+    suspend fun fetchAgoraToken(
+        channelName: String,
+        uid: Int
+    ): JSONObject? = withContext(Dispatchers.IO) {
+
+        val userToken = getOrCreateUserToken()
+        val jsonBody = JSONObject()
+
+        try {
+            jsonBody.put("device_token", userToken)
+            jsonBody.put("channel_name", channelName)
+            jsonBody.put("uid", uid)
+        } catch (e: Exception) {
+            Log.e("AGORA", "Failed to build payload", e)
+            return@withContext null
+        }
+
+        val request =
+            Request.Builder()
+                .url("${baseUrl}api/agora/token/")
+                .withAuth()
+                .post(
+                    jsonBody.toString().toRequestBody(jsonMediaType)
+                )
+                .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                Log.d("AGORA", "Token HTTP ${response.code}: $responseBody")
+
+                if (!response.isSuccessful) {
+                    return@withContext null
+                }
+
+                return@withContext JSONObject(responseBody)
+            }
+        } catch (e: Exception) {
+            Log.e("AGORA", "Network error during token fetch", e)
+            return@withContext null
         }
     }
 }

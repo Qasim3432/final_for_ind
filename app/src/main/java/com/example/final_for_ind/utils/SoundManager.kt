@@ -22,6 +22,7 @@ object SoundManager {
     private var buttonClickId = 0
     private var spinTickId = 0
     private var coinRewardId = 0
+    private var collectId = 0 // ✅ NEW: Collect sound ID
 
     private var appContext: Context? = null
 
@@ -54,6 +55,9 @@ object SoundManager {
             buttonClickId = soundPool?.load(ctx, R.raw.button_click, 1) ?: 0
             spinTickId = soundPool?.load(ctx, R.raw.spin_tick, 1) ?: 0
             coinRewardId = soundPool?.load(ctx, R.raw.coin_reward, 1) ?: 0
+
+            // ✅ NEW: Collect sound load kiya gaya hai
+            collectId = soundPool?.load(ctx, R.raw.collect, 1) ?: 0
 
             Log.d("SOUND", "SoundManager initialized")
 
@@ -109,7 +113,6 @@ object SoundManager {
 
     fun playTokenMove() = play(tokenMoveId, 0.8f)
 
-    // ✅ NEW: softer sound for each hop during move
     fun playTokenHop() = play(tokenMoveId, 0.55f)
 
     fun playTokenKick() = play(tokenKickId, 1f)
@@ -123,6 +126,9 @@ object SoundManager {
     fun playSpinTick() = play(spinTickId, 0.7f)
 
     fun playCoinReward() = play(coinRewardId, 1f)
+
+    // ✅ NEW: Collect sound play karne ka function
+    fun playCollectSound() = play(collectId, 1f)
 
 
     fun release() {

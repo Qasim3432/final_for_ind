@@ -8,9 +8,19 @@
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
+    <!-- ✅ NEW: Vibration permission for Token Home feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- ✅ Location permissions for withdrawal verification -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- ✅ NEW: Agora Voice Call Permissions -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- ✅ Package visibility for payment apps (Android 11+) -->
     <queries>

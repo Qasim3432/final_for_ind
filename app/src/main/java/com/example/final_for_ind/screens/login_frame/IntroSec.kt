@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Patterns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -21,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.*
@@ -37,6 +39,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -46,28 +49,87 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.final_for_ind.network.GameSessionManager
 import kotlinx.coroutines.delay
+
+
+// ==========================================================
+// USERNAME CHECK STATE
+// ==========================================================
+
+sealed interface UsernameCheckState {
+    object Idle : UsernameCheckState
+    object Checking : UsernameCheckState
+    object Available : UsernameCheckState
+    object Taken : UsernameCheckState
+    object Error : UsernameCheckState
+}
 
 
 @Composable
 fun IntroSec(
-    // ✅ FIX #1: Uri add kiya — profile image ab submit hogi
-    onSubmit: (String, String, Uri?) -> Unit,
-    // ✅ FIX #3: Loading state
+    sessionManager: GameSessionManager,
+    // ✅ NEW: country param added
+    onSubmit: (String, String, Uri?, String) -> Unit,
     isLoading: Boolean = false
 ) {
-    // ✅ FIX #6: rememberSaveable — rotation pe data preserve
     var nickname by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var profileImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
-    // ✅ FIX #9: Auto-focus nickname on load
+    // ✅ NEW: region selector — PK or IN
+    var selectedCountry by rememberSaveable { mutableStateOf("PK") }
+
+    var usernameCheckState by remember {
+        mutableStateOf<UsernameCheckState>(UsernameCheckState.Idle)
+    }
+
     val focusManager = LocalFocusManager.current
     val nicknameFocusRequester = remember { FocusRequester() }
 
+    val nicknameTrimmed = nickname.trim()
+    val emailTrimmed = email.trim()
+
+    val isNicknameValid = nicknameTrimmed.length in 3..20
+    val isEmailValid = Patterns.EMAIL_ADDRESS.matcher(emailTrimmed).matches()
+    val isUsernameAvailable = usernameCheckState == UsernameCheckState.Available
+
+    val isFormValid = isNicknameValid && isEmailValid && isUsernameAvailable
+
     LaunchedEffect(Unit) {
-        delay(300)   // smooth entry
+        delay(300)
         nicknameFocusRequester.requestFocus()
+    }
+
+    LaunchedEffect(nicknameTrimmed) {
+
+        if (nicknameTrimmed.length !in 3..20) {
+            usernameCheckState = UsernameCheckState.Idle
+            return@LaunchedEffect
+        }
+
+        usernameCheckState = UsernameCheckState.Checking
+        delay(600)
+
+        var attempts = 0
+        while (attempts < 2) {
+
+            val available =
+                sessionManager.checkUsernameAvailability(nicknameTrimmed)
+
+            if (available != null) {
+                usernameCheckState = if (available)
+                    UsernameCheckState.Available
+                else
+                    UsernameCheckState.Taken
+                return@LaunchedEffect
+            }
+
+            attempts++
+            if (attempts < 2) delay(1000)
+        }
+
+        usernameCheckState = UsernameCheckState.Error
     }
 
     val imagePicker = rememberLauncherForActivityResult(
@@ -76,19 +138,9 @@ fun IntroSec(
         profileImageUri = uri
     }
 
-    // 👇 SAME GRADIENT AS FIRST_SCREEN
     val gradient = Brush.verticalGradient(
         colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
     )
-
-    // ✅ FIX #4 + #5: Trim + nickname length validation
-    val nicknameTrimmed = nickname.trim()
-    val emailTrimmed = email.trim()
-
-    val isNicknameValid = nicknameTrimmed.length in 3..20
-    val isEmailValid = Patterns.EMAIL_ADDRESS.matcher(emailTrimmed).matches()
-
-    val isFormValid = isNicknameValid && isEmailValid
 
     Box(
         modifier = Modifier
@@ -99,14 +151,12 @@ fun IntroSec(
         Column(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
-                // ✅ FIX #2: Scroll + IME padding — keyboard open pe button visible
                 .verticalScroll(rememberScrollState())
                 .imePadding()
                 .padding(vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // 👇 SAME LOGO STYLE AS FIRST_SCREEN
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -144,7 +194,6 @@ fun IntroSec(
 
             Spacer(Modifier.height(40.dp))
 
-            // 👇 SAME CARD AS FIRST_SCREEN
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -229,10 +278,52 @@ fun IntroSec(
                         )
 
                         // ==========================================
+                        // ✅ NEW: REGION SELECTOR
+                        // ==========================================
+
+                        Text(
+                            "Select your region",
+                            color = Color(0xFFFFD700),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+
+                            CountrySelectorCard(
+                                flag = "🇵🇰",
+                                name = "Pakistan",
+                                isSelected = selectedCountry == "PK",
+                                onClick = { selectedCountry = "PK" },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            CountrySelectorCard(
+                                flag = "🇮🇳",
+                                name = "India",
+                                isSelected = selectedCountry == "IN",
+                                onClick = { selectedCountry = "IN" },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Text(
+                            "Region cannot be changed after signup.",
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 10.sp,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start
+                        )
+
+                        // ==========================================
                         // INPUT FIELDS
                         // ==========================================
 
-                        // ✅ FIX #7: IME Next on nickname + auto-focus
                         GlassTextField(
                             value = nickname,
                             onValueChange = { nickname = it },
@@ -246,18 +337,50 @@ fun IntroSec(
                             modifier = Modifier.focusRequester(nicknameFocusRequester)
                         )
 
-                        // ✅ FIX #5: Nickname validation hint
-                        if (nickname.isNotBlank() && !isNicknameValid) {
-                            Text(
-                                "Username 3-20 characters ka hona chahiye",
-                                color = Color(0xFFD32F2F),
-                                fontSize = 11.sp,
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Start
-                            )
+                        when {
+
+                            nickname.isNotBlank() && !isNicknameValid -> {
+                                Text(
+                                    "Username 3-20 characters ka hona chahiye",
+                                    color = Color(0xFFD32F2F),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
+                            }
+
+                            usernameCheckState == UsernameCheckState.Checking -> {
+                                Text(
+                                    "Checking availability...",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
+                            }
+
+                            usernameCheckState == UsernameCheckState.Taken -> {
+                                Text(
+                                    "This username is already taken.",
+                                    color = Color(0xFFD32F2F),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
+                            }
+
+                            usernameCheckState == UsernameCheckState.Error -> {
+                                Text(
+                                    "Could not verify username. Please retry.",
+                                    color = Color(0xFFFFA000),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Start
+                                )
+                            }
                         }
 
-                        // ✅ FIX #7: IME Done on email — submit on enter
                         GlassTextField(
                             value = email,
                             onValueChange = { email = it },
@@ -271,13 +394,13 @@ fun IntroSec(
                                     onSubmit(
                                         nicknameTrimmed,
                                         emailTrimmed,
-                                        profileImageUri
+                                        profileImageUri,
+                                        selectedCountry   // ✅ NEW
                                     )
                                 }
                             }
                         )
 
-                        // ✅ FIX #4: Email validation hint
                         if (email.isNotBlank() && !isEmailValid) {
                             Text(
                                 "Valid email address daalein",
@@ -290,7 +413,6 @@ fun IntroSec(
 
                         Spacer(Modifier.height(12.dp))
 
-                        // 👇 SAME BUTTON STYLE with loading
                         LoginPremiumButton(
                             text = if (isLoading) "PLEASE WAIT..." else "ENTER GAME",
                             gradient = Brush.horizontalGradient(
@@ -300,11 +422,11 @@ fun IntroSec(
                             isLoading = isLoading,
                             onClick = {
                                 focusManager.clearFocus()
-                                // ✅ FIX #1: Uri pass ho rahi hai
                                 onSubmit(
                                     nicknameTrimmed,
                                     emailTrimmed,
-                                    profileImageUri
+                                    profileImageUri,
+                                    selectedCountry   // ✅ NEW
                                 )
                             }
                         )
@@ -326,7 +448,73 @@ fun IntroSec(
 
 
 // ==========================================================
-// GLASS TEXT FIELD (with IME support)
+// ✅ NEW: COUNTRY SELECTOR CARD
+// ==========================================================
+
+@Composable
+fun CountrySelectorCard(
+    flag: String,
+    name: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+
+    val gold = Color(0xFFFFD700)
+
+    val bgColor by animateColorAsState(
+        if (isSelected)
+            gold.copy(alpha = 0.15f)
+        else
+            Color(0xFF1A0000).copy(alpha = 0.6f),
+        label = "countryBg"
+    )
+
+    Box(
+        modifier = modifier
+            .height(84.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(bgColor)
+            .border(
+                width = if (isSelected) 2.5.dp else 1.5.dp,
+                color = if (isSelected) gold else gold.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+            Text(flag, fontSize = 30.sp)
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+
+                if (isSelected) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = gold,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
+
+                Text(
+                    name,
+                    color = if (isSelected) gold else Color.White.copy(alpha = 0.8f),
+                    fontSize = 13.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+
+// ==========================================================
+// GLASS TEXT FIELD
 // ==========================================================
 
 @Composable
@@ -336,7 +524,6 @@ fun GlassTextField(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     keyboardType: KeyboardType,
-    // ✅ FIX #7: IME params
     imeAction: ImeAction = ImeAction.Next,
     onImeAction: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -380,16 +567,11 @@ fun GlassTextField(
 }
 
 
-// ==========================================================
-// PREMIUM BUTTON (with loading)
-// ==========================================================
-
 @Composable
 fun LoginPremiumButton(
     text: String,
     gradient: Brush,
     enabled: Boolean = true,
-    // ✅ FIX #3: Loading state
     isLoading: Boolean = false,
     onClick: () -> Unit
 ) {
@@ -461,8 +643,11 @@ fun LoginPremiumButton(
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun IntroSecPreview() {
+    val context = LocalContext.current
+    val sessionManager = remember { GameSessionManager(context) }
     IntroSec(
-        onSubmit = { _, _, _ -> },
+        sessionManager = sessionManager,
+        onSubmit = { _, _, _, _ -> },
         isLoading = false
     )
 }

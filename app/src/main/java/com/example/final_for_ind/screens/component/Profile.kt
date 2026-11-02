@@ -24,7 +24,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -42,44 +41,29 @@ import coil.compose.AsyncImage
 import com.example.final_for_ind.network.GameSessionManager
 import com.example.final_for_ind.network.TransactionLog
 import com.example.final_for_ind.screens.component.BottomNavBar
+import com.example.final_for_ind.utils.uriToFile
+import com.example.final_for_ind.utils.formatDollar
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
 import kotlin.random.Random
-
-
-fun uriToFile(context: Context, uri: Uri): File? {
-    return try {
-        val input = context.contentResolver.openInputStream(uri) ?: return null
-        val file = File(context.cacheDir, "profile_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { out -> input.copyTo(out) }
-        input.close()
-        file
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
-}
-
+import kotlin.math.abs
 
 // ==========================================================
-// ADAPTIVE FONT SIZE FOR COIN BALANCE
+// ADAPTIVE FONT SIZE FOR DOLLAR BALANCE
 // ==========================================================
 
 private fun adaptiveCoinsFontSize(value: Int): TextUnit {
-    val digits = value.toString().length
+    val length = formatDollar(value).length
     return when {
-        digits <= 4 -> 36.sp
-        digits == 5 -> 32.sp
-        digits == 6 -> 28.sp
-        digits == 7 -> 24.sp
-        digits == 8 -> 22.sp
-        digits == 9 -> 20.sp
-        digits == 10 -> 18.sp
+        length <= 6 -> 36.sp
+        length == 7 -> 32.sp
+        length == 8 -> 28.sp
+        length == 9 -> 24.sp
+        length == 10 -> 22.sp
+        length == 11 -> 20.sp
+        length == 12 -> 18.sp
         else -> 16.sp
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +75,6 @@ fun ProfileScreen(
     onLeaderboard: () -> Unit = {},
     onGameHistory: () -> Unit = {},
     onReferralDashboard: () -> Unit = {},
-    onTransactionHistory: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -100,20 +83,28 @@ fun ProfileScreen(
     var userName by remember { mutableStateOf("Guest") }
     var userEmail by remember { mutableStateOf("") }
     var coins by remember { mutableStateOf(0) }
+
+    var userCountry by remember { mutableStateOf("PK") }
+
     var showEditDialog by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollState = rememberScrollState()
 
-    // ✅ FIX #2: Transaction popup state
     var showTransactionDialog by remember { mutableStateOf(false) }
     var transactionsList by remember { mutableStateOf<List<TransactionLog>>(emptyList()) }
     var isLoadingTxns by remember { mutableStateOf(false) }
 
-    // ==========================================
-    // IMAGE PICKER
-    // ==========================================
+    suspend fun refreshCoins() {
+        try {
+            val token = sessionManager.getOrCreateUserToken()
+            val balance = sessionManager.fetchUserBalanceFromServer(token)
+            coins = balance.coins
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -125,10 +116,15 @@ fun ProfileScreen(
                 try {
                     val token = sessionManager.getOrCreateUserToken()
                     val picFile = uriToFile(context, uri)
-                    val success = sessionManager.syncUserProfile(
-                        token, userName, userEmail, picFile
+
+                    val result = sessionManager.syncUserProfile(
+                        deviceToken = token,
+                        nickname = userName,
+                        email = userEmail,
+                        profilePicFile = picFile
                     )
-                    if (success) {
+
+                    if (result.success) {
                         val prefs = context.getSharedPreferences(
                             "ludo_session_prefs",
                             Context.MODE_PRIVATE
@@ -138,7 +134,9 @@ fun ProfileScreen(
                         snackbarHostState.showSnackbar("Profile picture updated")
                     } else {
                         profileImageUri = null
-                        snackbarHostState.showSnackbar("Upload failed, try again")
+                        snackbarHostState.showSnackbar(
+                            result.errorMessage ?: "Upload failed"
+                        )
                     }
                 } catch (e: Exception) {
                     profileImageUri = null
@@ -149,10 +147,6 @@ fun ProfileScreen(
             }
         }
     }
-
-    // ==========================================
-    // LOAD PROFILE + BALANCE
-    // ==========================================
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -167,15 +161,13 @@ fun ProfileScreen(
                 savedPicUrl = prefs.getString("profile_pic_url", null)
                 userName = prefs.getString("email_user_name", "Guest") ?: "Guest"
                 userEmail = prefs.getString("email_user_email", "") ?: ""
+
+                userCountry = sessionManager.getSavedCountry()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
-
-    // ==========================================
-    // LOAD TRANSACTIONS FUNCTION (reusable)
-    // ==========================================
 
     fun loadTransactions() {
         isLoadingTxns = true
@@ -190,10 +182,6 @@ fun ProfileScreen(
             }
         }
     }
-
-    // ==========================================
-    // BACKGROUND
-    // ==========================================
 
     val bgGradient = Brush.radialGradient(
         listOf(Color(0xFF2B0000), Color(0xFF0A0A0A)),
@@ -241,10 +229,12 @@ fun ProfileScreen(
                             Text("👑", fontSize = 18.sp)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "PREMIUM PRO",
+                                userName.uppercase(),
                                 color = Color(0xFFD4AF37),
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp
+                                fontSize = 16.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -264,16 +254,10 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                // ==========================================
-                // AVATAR
-                // ==========================================
-
                 Box(
                     modifier = Modifier.size(130.dp),
                     contentAlignment = Alignment.Center
                 ) {
-
-                    // ✅ FIX #7: soft radial glow instead of blur (GPU cheaper)
                     Box(
                         Modifier
                             .size(130.dp)
@@ -346,10 +330,6 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(12.dp))
 
-                // ==========================================
-                // USER NAME + EDIT
-                // ==========================================
-
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         userName,
@@ -380,12 +360,36 @@ fun ProfileScreen(
                     )
                 }
 
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFD4AF37).copy(alpha = 0.15f))
+                        .border(
+                            1.dp,
+                            Color(0xFFD4AF37).copy(alpha = 0.5f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (userCountry == "IN") "🇮🇳" else "🇵🇰",
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        text = if (userCountry == "IN") "India" else "Pakistan",
+                        color = Color(0xFFD4AF37),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
                 Spacer(Modifier.height(24.dp))
 
-                // ==========================================
-                // COINS CARD (adaptive font)
-                // ==========================================
-
+                // BALANCE CARD
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -408,13 +412,12 @@ fun ProfileScreen(
                         Spacer(Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Total Coins",
+                                "Total Balance",
                                 color = Color(0xFFD4AF37),
                                 fontSize = 14.sp
                             )
-                            // ✅ FIX #4: adaptive font size
                             Text(
-                                "$coins",
+                                formatDollar(coins),
                                 color = Color(0xFFFFD700),
                                 fontSize = adaptiveCoinsFontSize(coins),
                                 fontWeight = FontWeight.ExtraBold,
@@ -427,37 +430,43 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                // ==========================================
-                // MENU ITEMS
-                // ==========================================
-
+                // Leaderboard (Purple Theme)
                 RoyalMenuItem(
                     icon = "🏅",
                     title = "Leaderboard",
                     subtitle = "Top players ranking",
-                    onClick = onLeaderboard
+                    onClick = onLeaderboard,
+                    bgColor = Color(0xFF1A0B2E),
+                    borderColor = Color(0xFF9D4EDD)
                 )
 
                 Spacer(Modifier.height(12.dp))
 
+                // Game History (Neon Green Theme)
                 RoyalMenuItem(
                     icon = "🏆",
                     title = "Game History",
-                    onClick = onGameHistory
+                    subtitle = "Check your past matches",
+                    onClick = onGameHistory,
+                    bgColor = Color(0xFF0F1410),
+                    borderColor = Color(0xFF00E676)
                 )
 
                 Spacer(Modifier.height(12.dp))
 
+                // Referral Dashboard (Neon Blue Theme)
                 RoyalMenuItem(
                     icon = "👥",
                     title = "Referral Dashboard",
                     subtitle = "Invite friends & earn",
-                    onClick = onReferralDashboard
+                    onClick = onReferralDashboard,
+                    bgColor = Color(0xFF081020),
+                    borderColor = Color(0xFF00E5FF)
                 )
 
                 Spacer(Modifier.height(12.dp))
 
-                // ✅ FIX #2 + #3: Transaction history — popup only, no double action
+                // Transaction History (Default Gold/Black)
                 RoyalMenuItem(
                     icon = "🔄",
                     title = "Transaction History",
@@ -470,11 +479,13 @@ fun ProfileScreen(
 
                 Spacer(Modifier.height(12.dp))
 
+                // ✅ Logout (Red Border/Line)
                 RoyalMenuItem(
                     icon = "⏻",
                     title = "Logout",
+                    subtitle = "Sign out from your account",
                     onClick = { onLogout() },
-                    isLogout = true
+                    borderColor = Color(0xFFE53935) // Red outline
                 )
 
                 Spacer(Modifier.height(40.dp))
@@ -482,30 +493,33 @@ fun ProfileScreen(
         }
     }
 
-    // ==========================================
-    // EDIT PROFILE DIALOG
-    // ==========================================
-
     if (showEditDialog) {
         EditProfileDialog(
             currentName = userName,
             currentEmail = userEmail,
             onDismiss = { showEditDialog = false },
             onSave = { newName, newEmail ->
-                // ✅ FIX #5: callback returns when done
                 scope.launch {
                     try {
                         val token = sessionManager.getOrCreateUserToken()
-                        val success = sessionManager.syncUserProfile(
-                            token, newName, newEmail, null
+
+                        val result = sessionManager.syncUserProfile(
+                            deviceToken = token,
+                            nickname = newName,
+                            email = newEmail,
+                            profilePicFile = null
                         )
-                        if (success) {
+
+                        if (result.success) {
                             userName = newName
                             userEmail = newEmail
                             showEditDialog = false
+                            refreshCoins()
                             snackbarHostState.showSnackbar("Profile updated")
                         } else {
-                            snackbarHostState.showSnackbar("Update failed")
+                            snackbarHostState.showSnackbar(
+                                result.errorMessage ?: "Update failed"
+                            )
                         }
                     } catch (e: Exception) {
                         snackbarHostState.showSnackbar("Error: ${e.message}")
@@ -514,10 +528,6 @@ fun ProfileScreen(
             }
         )
     }
-
-    // ==========================================
-    // TRANSACTION HISTORY POPUP
-    // ==========================================
 
     if (showTransactionDialog) {
         TransactionHistoryPopup(
@@ -542,8 +552,6 @@ fun TransactionHistoryPopup(
     onDismiss: () -> Unit
 ) {
     val gold = Color(0xFFD4AF37)
-    val redDark = Color(0xFF2B0000)
-    val redBright = Color(0xFFD32F2F)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -564,20 +572,14 @@ fun TransactionHistoryPopup(
                     modifier = Modifier.weight(1f)
                 )
 
-                // ✅ FIX #2: Refresh button
                 IconButton(
-                    onClick = {
-                        if (!isLoading) onRefresh()
-                    },
+                    onClick = { if (!isLoading) onRefresh() },
                     enabled = !isLoading
                 ) {
                     Icon(
                         Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = if (isLoading)
-                            gold.copy(alpha = 0.4f)
-                        else
-                            gold,
+                        tint = if (isLoading) gold.copy(alpha = 0.4f) else gold,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -619,12 +621,7 @@ fun TransactionHistoryPopup(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             transactions.forEach { log ->
-                                ProfileTransactionRow(
-                                    log = log,
-                                    gold = gold,
-                                    redBright = redBright,
-                                    redDark = redDark
-                                )
+                                ProfileTransactionRow(log = log, gold = gold)
                             }
                         }
                     }
@@ -634,16 +631,10 @@ fun TransactionHistoryPopup(
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = gold
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = gold),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    "Close",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold
-                )
+                Text("Close", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         }
     )
@@ -653,15 +644,40 @@ fun TransactionHistoryPopup(
 @Composable
 fun ProfileTransactionRow(
     log: TransactionLog,
-    gold: Color,
-    redBright: Color,
-    redDark: Color
+    gold: Color
 ) {
-    val isDeposit = log.type == "DEPOSIT"
-    val statusColor = when (log.status) {
-        "APPROVED" -> Color(0xFF2ECC71)
-        "REJECTED" -> Color(0xFFE74C3C)
-        else -> Color(0xFFF1C40F)
+
+    val (title, isCredit, icon) = when (log.type) {
+
+        "DEPOSIT"                   -> Triple("Deposit",            true,  "📥")
+        "WITHDRAWAL"                -> Triple("Withdrawal",         false, "📤")
+        "DAILY_BONUS"               -> Triple("Daily Bonus",        true,  "🎁")
+        "SPIN_COST"                 -> Triple("Spin Cost",          false, "🎰")
+        "SPIN_REWARD"               -> Triple("Spin Reward",        true,  "🎉")
+        "LEADERBOARD_REWARD"        -> Triple("Leaderboard Reward", true,  "🏆")
+        "REFERRAL_BONUS"            -> Triple("Referral Bonus",     true,  "👥")
+        "REFERRAL_INVITE_REWARD"    -> Triple("Invite Reward",      true,  "👥")
+        "REFERRAL_COMMISSION"       -> Triple("Referral Commission",true,  "💸")
+        "WAGER_ESCROW"              -> Triple("Match Entry",        false, "⚔️")
+        "WAGER_PAYOUT"              -> Triple("Match Win",          true,  "🏅")
+        "WAGER_REFUND"              -> Triple("Match Refund",       true,  "↩️")
+
+        else -> Triple(
+            log.type.replace("_", " "),
+            log.amount > 0,
+            "💰"
+        )
+    }
+
+    val amountColor = if (isCredit) Color(0xFF2ECC71) else Color(0xFFE74C3C)
+
+    val absAmount = abs(log.amount)
+    val amountText = if (log.amount >= 0) "+${formatDollar(absAmount)}" else "-${formatDollar(absAmount)}"
+
+    val statusColor = when (log.status.uppercase()) {
+        "APPROVED", "SUCCESS" -> Color(0xFF2ECC71)
+        "REJECTED", "FAILED"  -> Color(0xFFE74C3C)
+        else                  -> Color(0xFFF1C40F)
     }
 
     Card(
@@ -671,11 +687,7 @@ fun ProfileTransactionRow(
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                1.dp,
-                gold.copy(alpha = 0.25f),
-                RoundedCornerShape(12.dp)
-            )
+            .border(1.dp, gold.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
     ) {
         Row(
             modifier = Modifier
@@ -684,42 +696,47 @@ fun ProfileTransactionRow(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isDeposit)
-                        "Deposit Request"
-                    else
-                        "Withdrawal Request",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-                Text(
-                    text = log.dateString,
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 2.dp),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(icon, fontSize = 22.sp)
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = log.dateString,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
+
+            Spacer(Modifier.width(8.dp))
 
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${if (isDeposit) "+" else "-"}${log.amount}",
-                    color = if (isDeposit)
-                        Color(0xFF2ECC71)
-                    else
-                        Color(0xFFE74C3C),
+                    text = amountText,
+                    color = amountColor,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    fontSize = 16.sp,
+                    maxLines = 1
                 )
                 Text(
                     text = log.status,
                     color = statusColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 2.dp)
+                    maxLines = 1
                 )
             }
         }
@@ -728,7 +745,7 @@ fun ProfileTransactionRow(
 
 
 // ==========================================================
-// EDIT PROFILE DIALOG (with loading + email validation)
+// EDIT PROFILE DIALOG
 // ==========================================================
 
 @Composable
@@ -743,13 +760,13 @@ fun EditProfileDialog(
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email).matches()
-    val canSave = name.isNotBlank() && isEmailValid && !isSaving
+    val trimmedName = name.trim()
+    val isNameValid = trimmedName.length in 2..20
+    val isEmailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    val canSave = isNameValid && isEmailValid && !isSaving
 
     AlertDialog(
-        onDismissRequest = {
-            if (!isSaving) onDismiss()
-        },
+        onDismissRequest = { if (!isSaving) onDismiss() },
         containerColor = Color(0xFF1A1A1A),
         shape = RoundedCornerShape(20.dp),
         title = {
@@ -768,11 +785,10 @@ fun EditProfileDialog(
                         name = it
                         errorMessage = ""
                     },
-                    label = {
-                        Text("Name", color = Color(0xFFD4AF37))
-                    },
+                    label = { Text("Name", color = Color(0xFFD4AF37)) },
                     singleLine = true,
                     enabled = !isSaving,
+                    isError = name.isNotBlank() && !isNameValid,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFD4AF37),
                         unfocusedBorderColor = Color(0xFFD4AF37).copy(alpha = 0.5f),
@@ -780,9 +796,19 @@ fun EditProfileDialog(
                         unfocusedLabelColor = Color(0xFFD4AF37).copy(alpha = 0.7f),
                         cursorColor = Color(0xFFD4AF37),
                         focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        unfocusedTextColor = Color.White,
+                        errorBorderColor = Color(0xFFD32F2F)
                     )
                 )
+
+                if (name.isNotBlank() && !isNameValid) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Name must be 2-20 characters",
+                        color = Color(0xFFD32F2F),
+                        fontSize = 11.sp
+                    )
+                }
 
                 Spacer(Modifier.height(12.dp))
 
@@ -792,15 +818,10 @@ fun EditProfileDialog(
                         email = it
                         errorMessage = ""
                     },
-                    label = {
-                        Text("Email", color = Color(0xFFD4AF37))
-                    },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email
-                    ),
+                    label = { Text("Email", color = Color(0xFFD4AF37)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
                     enabled = !isSaving,
-                    // ✅ FIX #6: email validation visual
                     isError = email.isNotBlank() && !isEmailValid,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFD4AF37),
@@ -825,11 +846,7 @@ fun EditProfileDialog(
 
                 if (errorMessage.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        errorMessage,
-                        color = Color(0xFFD32F2F),
-                        fontSize = 12.sp
-                    )
+                    Text(errorMessage, color = Color(0xFFD32F2F), fontSize = 12.sp)
                 }
             }
         },
@@ -837,9 +854,8 @@ fun EditProfileDialog(
             Button(
                 onClick = {
                     if (canSave) {
-                        // ✅ FIX #5: loading state
                         isSaving = true
-                        onSave(name.trim(), email.trim())
+                        onSave(trimmedName, email.trim())
                     }
                 },
                 enabled = canSave,
@@ -864,14 +880,8 @@ fun EditProfileDialog(
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isSaving
-            ) {
-                Text(
-                    "Cancel",
-                    color = Color(0xFFD4AF37)
-                )
+            TextButton(onClick = onDismiss, enabled = !isSaving) {
+                Text("Cancel", color = Color(0xFFD4AF37))
             }
         }
     )
@@ -879,7 +889,7 @@ fun EditProfileDialog(
 
 
 // ==========================================================
-// MENU ITEM
+// MENU ITEM (Supports Solid Colors & Gradients)
 // ==========================================================
 
 @Composable
@@ -888,26 +898,38 @@ fun RoyalMenuItem(
     title: String,
     subtitle: String? = null,
     onClick: () -> Unit,
-    isLogout: Boolean = false
+    bgColor: Color = Color(0xFF0A0A0A).copy(alpha = 0.7f),
+    bgBrush: Brush? = null, // Added support for gradient
+    borderColor: Color = Color(0xFFD4AF37),
+    iconColor: Color = Color.White,
+    textColor: Color = Color.White,
+    subtitleColor: Color = Color(0xFFD4AF37).copy(alpha = 0.7f)
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(if (subtitle == null) 64.dp else 80.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFF0A0A0A).copy(alpha = 0.7f))
-            .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(18.dp))
+            .then(
+                // Apply gradient if provided, otherwise use solid color
+                if (bgBrush != null) {
+                    Modifier.background(bgBrush)
+                } else {
+                    Modifier.background(bgColor)
+                }
+            )
+            .border(2.dp, borderColor, RoundedCornerShape(18.dp))
             .clickable { onClick() }
             .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(icon, fontSize = 28.sp)
+            Text(icon, fontSize = 28.sp, color = iconColor)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     title,
-                    color = Color.White,
+                    color = textColor,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -916,7 +938,7 @@ fun RoyalMenuItem(
                 if (subtitle != null) {
                     Text(
                         subtitle,
-                        color = Color(0xFFD4AF37).copy(alpha = 0.7f),
+                        color = subtitleColor,
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -926,7 +948,7 @@ fun RoyalMenuItem(
             Icon(
                 Icons.Default.ArrowForwardIos,
                 null,
-                tint = Color(0xFFD4AF37),
+                tint = borderColor,
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -935,20 +957,15 @@ fun RoyalMenuItem(
 
 
 // ==========================================================
-// BACKGROUND SPARKLES (FIXED — no jumping)
+// BACKGROUND SPARKLES
 // ==========================================================
 
 @Composable
 fun CanvasBg() {
 
-    // ✅ FIX #1: positions computed once via remember
     val sparklePositions = remember {
         List(60) {
-            Triple(
-                Random.nextFloat(),
-                Random.nextFloat(),
-                Random.nextFloat()
-            )
+            Triple(Random.nextFloat(), Random.nextFloat(), Random.nextFloat())
         }
     }
 
@@ -957,10 +974,7 @@ fun CanvasBg() {
             drawCircle(
                 Color(0xFFFFD700).copy(alpha = sizeFactor * 0.5f),
                 radius = sizeFactor * 2.5f,
-                center = Offset(
-                    fx * size.width,
-                    fy * size.height
-                )
+                center = Offset(fx * size.width, fy * size.height)
             )
         }
     }

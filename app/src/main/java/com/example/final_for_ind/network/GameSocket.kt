@@ -4,6 +4,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 
+import com.example.final_for_ind.AppConfig
+
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -68,6 +70,11 @@ class GameSocket(
             return
         }
 
+        try {
+            socket?.close(1000, "New connection")
+        } catch (_: Exception) { }
+        socket = null
+
         Log.d(
             "GAME_SOCKET",
             "Connecting WebSocket. " +
@@ -75,8 +82,9 @@ class GameSocket(
                     "Token=$playerToken"
         )
 
-
-        val url = "ws://192.168.18.55:8090/ws/ludo/$gameId/?player_token=$playerToken"
+        val url =
+            "${AppConfig.WS_BASE_URL}ws/ludo/$gameId/" +
+                    "?player_token=$playerToken"
 
         Log.d(
             "GAME_SOCKET",
@@ -181,6 +189,27 @@ class GameSocket(
 
                         onConnectionChange?.invoke(false)
 
+                        if (code == 1000) {
+
+                            Log.d(
+                                "GAME_SOCKET",
+                                "Clean close — no reconnect"
+                            )
+
+                            return
+                        }
+
+                        if (code in 4000..4010) {
+
+                            Log.w(
+                                "GAME_SOCKET",
+                                "Permanent rejection code=$code — " +
+                                        "NOT reconnecting. Reason=$reason"
+                            )
+
+                            return
+                        }
+
                         scheduleReconnect()
                     }
 
@@ -206,6 +235,17 @@ class GameSocket(
                         socket = null
 
                         onConnectionChange?.invoke(false)
+
+                        if (response?.code == 403) {
+
+                            Log.w(
+                                "GAME_SOCKET",
+                                "HTTP 403 Forbidden — NOT reconnecting. " +
+                                        "Wager may be missing."
+                            )
+
+                            return
+                        }
 
                         scheduleReconnect()
                     }
@@ -235,6 +275,8 @@ class GameSocket(
 
             return
         }
+
+        mainHandler.removeCallbacks(reconnectRunnable)
 
         reconnectAttempts++
 
@@ -351,10 +393,94 @@ class GameSocket(
 
 
     // =========================================================
-    // SKIP TURN  ← NEW
-    //
-    // Called when the player's turn times out (40s of no action).
-    // Asks the server to advance the turn to the next player.
+    // REMATCH REQUEST (F2)
+    // =========================================================
+
+    fun sendRematchRequest() {
+
+        val payload =
+            JSONObject().apply {
+
+                put(
+                    "action",
+                    "rematch_request"
+                )
+            }
+
+        Log.d(
+            "GAME_SOCKET",
+            "Sending rematch_request: $payload"
+        )
+
+        socket?.send(
+            payload.toString()
+        )
+    }
+
+
+    // =========================================================
+    // CHAT MESSAGE (F3)
+    // =========================================================
+
+    fun sendChatMessage(text: String) {
+
+        if (text.isBlank() || text.length > 100) {
+            return
+        }
+
+        val payload =
+            JSONObject().apply {
+
+                put(
+                    "action",
+                    "chat_message"
+                )
+
+                put(
+                    "text",
+                    text.trim()
+                )
+            }
+
+        Log.d(
+            "GAME_SOCKET",
+            "Sending chat_message: $payload"
+        )
+
+        socket?.send(
+            payload.toString()
+        )
+    }
+
+
+    // =========================================================
+    // ✅ NEW: VOICE CALL INVITE
+    // =========================================================
+
+    fun sendVoiceCallInvite() {
+
+        val payload =
+            JSONObject().apply {
+
+                put(
+                    "action",
+                    "voice_call_invite"
+                )
+            }
+
+        Log.d(
+            "GAME_SOCKET",
+            "Sending voice_call_invite: $payload"
+        )
+
+        socket?.send(
+            payload.toString()
+        )
+    }
+
+
+    // =========================================================
+    // SKIP TURN
     // =========================================================
 
     fun skipTurn() {

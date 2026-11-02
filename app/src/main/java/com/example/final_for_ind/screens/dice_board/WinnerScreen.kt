@@ -25,6 +25,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.final_for_ind.utils.formatDollar
 import kotlinx.coroutines.isActive
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,7 +41,8 @@ val RewardGold = Color(0xFFFFD700)
 fun WinnerScreen(
     didWin: Boolean,
     payout: Int = 0,
-    onContinue: () -> Unit
+    onContinue: () -> Unit, // Returns to Home/Wallet
+    onRematch: () -> Unit   // Restarts matchmaking (VersusScreen)
 ) {
     Box(
         modifier = Modifier
@@ -101,7 +103,7 @@ fun WinnerScreen(
                     )
                 ) {
                     Text(
-                        text = "+$payout COINS",
+                        text = "+${formatDollar(payout)}",
                         color = Color(0xFF3A2500),
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
@@ -115,6 +117,34 @@ fun WinnerScreen(
 
             Spacer(modifier = Modifier.height(50.dp))
 
+            // ✅ REMATCH Button
+            Button(
+                onClick = onRematch,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                contentPadding = PaddingValues(),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(60.dp)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            listOf(RewardGold, Color(0xFFFFA500))
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+            ) {
+                Text(
+                    text = "🔄 REMATCH",
+                    fontSize = 20.sp,
+                    color = Color(0xFF3A2500),
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ✅ CONTINUE Button (Exit)
             Button(
                 onClick = onContinue,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -205,16 +235,13 @@ fun DualPartyPopperAnimation() {
         drawPopperCone(originX = 50f, originY = 50f, isLeft = true)
         drawPopperCone(originX = canvasW - 50f, originY = 50f, isLeft = false)
 
-        // Light gravity and strong air resistance
         val gravity = 0.18f
-        val drag = 0.88f // High resistance: quickly slows horizontal explosion to a float
+        val drag = 0.88f
 
         particles.forEach { p ->
-            // Apply heavy air drag to slow down explosion speeds
             p.vx *= drag
             p.vy = (p.vy * drag) + gravity
 
-            // Flutter oscillation
             p.phase += p.oscillationFrequency
             val wobbleX = (sin(p.phase.toDouble()) * 1.5f).toFloat()
 
@@ -237,7 +264,6 @@ private fun createBurstParticle(isLeft: Boolean, startX: Float, startY: Float, c
     val angleDegrees = if (isLeft) Random.nextFloat() * 50f + 15f else Random.nextFloat() * 50f + 115f
     val rads = Math.toRadians(angleDegrees.toDouble())
 
-    // High explosive start speed (drag will quickly decelerate it)
     val explosionForce = Random.nextFloat() * 25f + 25f
 
     val isRibbon = Random.nextBoolean()

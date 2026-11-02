@@ -1,5 +1,8 @@
 package com.example.final_for_ind.network
 
+import com.example.final_for_ind.AppConfig
+
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -10,8 +13,9 @@ import org.json.JSONObject
 
 object GameApi {
 
-    private const val BASE_URL =
-        "http://192.168.18.55:8090/"
+    // ✅ BuildConfig se — no hardcoded IP
+    private val BASE_URL =
+        AppConfig.BASE_URL
 
     private val client =
         OkHttpClient()
@@ -69,8 +73,9 @@ object GameApi {
     // =========================================================
     // SEND OTP
     //
-    // Server generates the code now.
-    // Client only sends the email.
+    // ⚠️ DEPRECATED — AuthScreenRouter ab
+    //    sessionManager.sendOtpEmail() use karta hai
+    //    (device_fingerprint ke saath).
     // =========================================================
 
     suspend fun sendOtpEmail(
@@ -109,8 +114,7 @@ object GameApi {
 
     // =========================================================
     // VERIFY EMAIL LOGIN
-    //
-    // Sends the code the user typed in.
+    // ⚠️ DEPRECATED — use sessionManager.verifyEmailWithBackend
     // =========================================================
 
     suspend fun verifyEmailLogin(
@@ -161,9 +165,7 @@ object GameApi {
 
     // =========================================================
     // INITIALIZE MATCHMAKING
-    //
-    // Sends player_token + player_name
-    // as required by backend.
+    // ⚠️ DEPRECATED — use sessionManager.registerAndJoinMatch
     // =========================================================
 
     suspend fun initializeMatchOnServer(
@@ -204,17 +206,4 @@ object GameApi {
             body.toString()
         )
     }
-
-
-    // =========================================================
-    // NOTE:
-    //
-    // rollDice() and moveTokenOnServer() have been REMOVED.
-    //
-    // These actions are now handled exclusively through the
-    // WebSocket connection in GameSocket.kt.
-    //
-    // The REST endpoints "roll-dice" and "move-token" never
-    // existed on the backend and were dead code.
-    // =========================================================
 }

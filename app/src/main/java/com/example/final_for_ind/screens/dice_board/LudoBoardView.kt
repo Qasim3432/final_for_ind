@@ -114,6 +114,31 @@ class LudoBoardView @JvmOverloads constructor(
         "${token.color.name}_${token.id}"
 
     // ==========================================================
+    // ✅ NEW: FIX FOR (0,0) BUG
+    // Board ka size aate hi saari positions recalculate karo
+    // ==========================================================
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+
+        val boardSize = w.toFloat()
+        dynamicCellSize = boardSize / 15f
+
+        if (dynamicCellSize > 0f) {
+            // Purani galat positions clear karo
+            animatedPositions.clear()
+            // Nayi sahi positions calculate karo
+            for (token in tokensList) {
+                val key = tokenKey(token)
+                animatedPositions[key] = centerForPosition(token, token.position, dynamicCellSize)
+                animatedScales[key] = 1f
+                animatedAlphas[key] = 1f
+            }
+            invalidate()
+        }
+    }
+
+    // ==========================================================
     // SERVER STATE SYNCHRONIZER
     // ==========================================================
 
@@ -166,10 +191,13 @@ class LudoBoardView @JvmOverloads constructor(
 
             // First time seeing this token — snap
             if (!animatedPositions.containsKey(key)) {
-                animatedPositions[key] =
-                    centerForPosition(token, token.position, dynamicCellSize)
-                animatedScales[key] = 1f
-                animatedAlphas[key] = 1f
+                // ✅ FIX: Sirf tab snap karo jab size pata ho
+                if (dynamicCellSize > 0f) {
+                    animatedPositions[key] =
+                        centerForPosition(token, token.position, dynamicCellSize)
+                    animatedScales[key] = 1f
+                    animatedAlphas[key] = 1f
+                }
                 continue
             }
 

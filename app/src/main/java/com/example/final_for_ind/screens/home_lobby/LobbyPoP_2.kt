@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 
 @Preview
 @Composable
-fun GameSetupDialog(
+fun GameSetupDialogb(
     headerTitle: String = "2 PLAYERS",
     onDismiss: () -> Unit = {},
     onPlay: (Int) -> Unit = {}

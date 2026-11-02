@@ -1,72 +1,84 @@
 package com.example.final_for_ind.screens.start
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.final_for_ind.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun SplashScreen(onTimeout: () -> Unit) {
-    // 👇 BLACK RED GRADIENT
-    val gradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFF0A0A0A), Color(0xFF1A0000))
+    // ✅ 1. DARK BLUE PREMIUM GRADIENT (Matching the Logo)
+    val gradient = Brush.radialGradient(
+        colors = listOf(Color(0xFF0F1A2C), Color(0xFF050A15)),
+        radius = 1500f
     )
 
-    // Main animations
-    val alpha = remember { Animatable(0f) }
-    val scale = remember { Animatable(0.8f) }
+    // Animations
+    val logoAlpha = remember { Animatable(0f) }
+    val logoScale = remember { Animatable(0.5f) }
+    val textAlpha = remember { Animatable(0f) }
     val glowAlpha = remember { Animatable(0f) }
 
     // Loading dots animation
-    val infiniteTransition = rememberInfiniteTransition()
-    val dot1 = infiniteTransition.animateFloat(
-        initialValue = 0.4f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        )
+    val infiniteTransition = rememberInfiniteTransition(label = "loading")
+    val dot1 by infiniteTransition.animateFloat(
+        initialValue = 0.3f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "dot1"
     )
-    val dot2 = infiniteTransition.animateFloat(
-        initialValue = 0.4f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, delayMillis = 250, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        )
+    val dot2 by infiniteTransition.animateFloat(
+        initialValue = 0.3f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(600, delayMillis = 200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "dot2"
     )
-    val dot3 = infiniteTransition.animateFloat(
-        initialValue = 0.4f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, delayMillis = 500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        )
+    val dot3 by infiniteTransition.animateFloat(
+        initialValue = 0.3f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(600, delayMillis = 400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "dot3"
+    )
+
+    // Glow pulse animation
+    val pulseTransition = rememberInfiniteTransition(label = "pulse")
+    val glowScale by pulseTransition.animateFloat(
+        initialValue = 1f, targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Reverse),
+        label = "glowScale"
     )
 
     LaunchedEffect(Unit) {
-        launch {
-            alpha.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
-            scale.animateTo(1f, tween(1200, easing = FastOutSlowInEasing))
-        }
-        launch {
-            glowAlpha.animateTo(1f, tween(1500, easing = FastOutSlowInEasing))
-        }
-        delay(2500)
+        // Logo pop-in
+        launch { logoAlpha.animateTo(1f, tween(800)) }
+        logoScale.animateTo(1.1f, tween(800, easing = FastOutSlowInEasing))
+        logoScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioHighBouncy))
+
+        // Glow and Text fade-in
+        launch { glowAlpha.animateTo(1f, tween(1200)) }
+        launch { textAlpha.animateTo(1f, tween(1000, delayMillis = 400)) }
+
+        delay(2200) // Total hold time
         onTimeout()
     }
 
@@ -75,71 +87,95 @@ fun SplashScreen(onTimeout: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // Logo with GOLDEN glow effect
+
+            // ==========================================
+            // LOGO & GLOW
+            // ==========================================
             Box(
-                modifier = Modifier.size(140.dp),
+                modifier = Modifier.size(160.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Glow background - GOLDEN
+                // Golden Glow Behind Logo
                 Box(
                     modifier = Modifier
-                        .size(140.dp).scale(1.3f).alpha(glowAlpha.value * 0.5f).blur(30.dp)
-                        .background(Brush.radialGradient(colors = listOf(Color(0xFFFFD700), Color.Transparent)), CircleShape)
-                        .border(3.dp, Color(0xFFFFD700).copy(alpha = 0.3f), CircleShape) // 👈 GOLDEN RING
+                        .size(180.dp)
+                        .scale(glowScale)
+                        .alpha(glowAlpha.value * 0.6f)
+                        .blur(40.dp)
+                        .background(
+                            Brush.radialGradient(listOf(Color(0xFFFFD700), Color.Transparent)),
+                            CircleShape
+                        )
                 )
 
-                // Emoji Logo
-                Text(
-                    text = "🎮",
-                    fontSize = 80.sp,
-                    modifier = Modifier.alpha(alpha.value).scale(scale.value)
+                // Main Logo Image
+                Image(
+                    painter = painterResource(id = R.drawable.rock),
+                    contentDescription = "Rocks Game Logo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(150.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .alpha(logoAlpha.value)
+                        .scale(logoScale.value)
+                        .border(2.dp, Color(0xFFFFD700).copy(alpha = 0.3f), RoundedCornerShape(24.dp))
                 )
             }
 
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(36.dp))
 
-            // App Name with GOLDEN glow
-            Box {
-                // Glow text
+            // ==========================================
+            // APP NAME (Golden Gradient)
+            // ==========================================
+            Box(contentAlignment = Alignment.Center) {
                 Text(
-                    text = "Game Hub",
-                    color = Color(0xFFFFD700).copy(alpha = 0.5f), // 👈 GOLDEN
-                    fontSize = 40.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    text = "ROCKS GAME",
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.Black,
                     letterSpacing = 2.sp,
-                    modifier = Modifier.blur(8.dp).alpha(glowAlpha.value * 0.6f)
+                    modifier = Modifier
+                        .alpha(textAlpha.value)
+                        .blur(10.dp) // Shadow effect
                 )
 
-                // Main text
                 Text(
-                    text = "Game Hub",
-                    color = Color(0xFFFFD700), // 👈 GOLDEN
-                    fontSize = 40.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    text = "ROCKS GAME",
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.Black,
                     letterSpacing = 2.sp,
-                    modifier = Modifier.alpha(alpha.value).scale(scale.value)
+                    style = androidx.compose.ui.text.TextStyle(
+                        brush = Brush.horizontalGradient(
+                            listOf(Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700))
+                        )
+                    ),
+                    modifier = Modifier.alpha(textAlpha.value)
                 )
             }
 
             Spacer(Modifier.height(8.dp))
 
+            // Subtitle
             Text(
-                text = "Play • Compete • Win",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 3.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.alpha(alpha.value)
+                text = "2X LUDO",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 8.sp,
+                modifier = Modifier.alpha(textAlpha.value)
             )
 
-            Spacer(Modifier.height(56.dp))
+            Spacer(Modifier.height(60.dp))
 
-            // Loading Dots - GOLDEN
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                LoadingDot(scale = dot1.value)
-                LoadingDot(scale = dot2.value)
-                LoadingDot(scale = dot3.value)
+            // ==========================================
+            // LOADING DOTS
+            // ==========================================
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.alpha(textAlpha.value)
+            ) {
+                LoadingDot(scale = dot1)
+                LoadingDot(scale = dot2)
+                LoadingDot(scale = dot3)
             }
         }
     }
@@ -149,12 +185,12 @@ fun SplashScreen(onTimeout: () -> Unit) {
 fun LoadingDot(scale: Float) {
     Box(
         Modifier
-            .size(10.dp).scale(scale)
+            .size(12.dp)
+            .scale(scale)
             .background(
-                brush = Brush.radialGradient(colors = listOf(Color(0xFFFFD700), Color(0xFFFFA500))), // 👈 GOLDEN
+                brush = Brush.radialGradient(colors = listOf(Color(0xFFFFD700), Color(0xFFFFA500))),
                 shape = CircleShape
             )
-            .border(1.5.dp, Color(0xFFFFD700), CircleShape) // 👈 GOLDEN BORDER
     )
 }
 

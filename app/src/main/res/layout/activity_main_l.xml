@@ -9,10 +9,7 @@
     android:background="@color/mainreal"
     android:padding="16dp">
 
-    <!-- ===================================================== -->
     <!-- STATUS -->
-    <!-- ===================================================== -->
-
     <TextView
         android:id="@+id/tvStatus"
         android:layout_width="0dp"
@@ -28,11 +25,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-
-    <!-- ===================================================== -->
     <!-- BLUE PROFILE -->
-    <!-- ===================================================== -->
-
     <LinearLayout
         android:id="@+id/profileBlue"
         android:layout_width="wrap_content"
@@ -50,6 +43,7 @@
             android:id="@+id/imgProfileBlue"
             android:layout_width="40dp"
             android:layout_height="40dp"
+            android:scaleType="centerCrop"
             android:src="@drawable/blue_token" />
 
         <TextView
@@ -61,13 +55,26 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp" />
 
+        <TextView
+            android:id="@+id/txtSurrenderedBlue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:background="#CC0000"
+            android:fontFamily="@font/fredoka_one_regular"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
+            android:paddingTop="1dp"
+            android:paddingBottom="1dp"
+            android:text="SURRENDERED"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
     </LinearLayout>
 
-
-    <!-- ===================================================== -->
     <!-- RED PROFILE -->
-    <!-- ===================================================== -->
-
     <LinearLayout
         android:id="@+id/profileRed"
         android:layout_width="wrap_content"
@@ -85,6 +92,7 @@
             android:id="@+id/imgProfileRed"
             android:layout_width="40dp"
             android:layout_height="40dp"
+            android:scaleType="centerCrop"
             android:src="@drawable/red_token" />
 
         <TextView
@@ -96,13 +104,26 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp" />
 
+        <TextView
+            android:id="@+id/txtSurrenderedRed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:background="#CC0000"
+            android:fontFamily="@font/fredoka_one_regular"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
+            android:paddingTop="1dp"
+            android:paddingBottom="1dp"
+            android:text="SURRENDERED"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
     </LinearLayout>
 
-
-    <!-- ===================================================== -->
     <!-- LUDO BOARD -->
-    <!-- ===================================================== -->
-
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/ludoBoardContainer"
         android:layout_width="0dp"
@@ -126,11 +147,7 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-
-    <!-- ===================================================== -->
     <!-- YELLOW PROFILE -->
-    <!-- ===================================================== -->
-
     <LinearLayout
         android:id="@+id/profileYellow"
         android:layout_width="wrap_content"
@@ -149,6 +166,7 @@
             android:id="@+id/imgProfileYellow"
             android:layout_width="40dp"
             android:layout_height="40dp"
+            android:scaleType="centerCrop"
             android:src="@drawable/token_yellow" />
 
         <TextView
@@ -160,13 +178,26 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp" />
 
+        <TextView
+            android:id="@+id/txtSurrenderedYellow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:background="#CC0000"
+            android:fontFamily="@font/fredoka_one_regular"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
+            android:paddingTop="1dp"
+            android:paddingBottom="1dp"
+            android:text="SURRENDERED"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
     </LinearLayout>
 
-
-    <!-- ===================================================== -->
     <!-- GREEN PROFILE -->
-    <!-- ===================================================== -->
-
     <LinearLayout
         android:id="@+id/profileGreen"
         android:layout_width="wrap_content"
@@ -185,6 +216,7 @@
             android:id="@+id/imgProfileGreen"
             android:layout_width="40dp"
             android:layout_height="40dp"
+            android:scaleType="centerCrop"
             android:src="@drawable/green_token" />
 
         <TextView
@@ -196,13 +228,26 @@
             android:textColor="#FFFFFF"
             android:textSize="11sp" />
 
+        <TextView
+            android:id="@+id/txtSurrenderedGreen"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:background="#CC0000"
+            android:fontFamily="@font/fredoka_one_regular"
+            android:paddingStart="5dp"
+            android:paddingEnd="5dp"
+            android:paddingTop="1dp"
+            android:paddingBottom="1dp"
+            android:text="SURRENDERED"
+            android:textColor="#FFFFFF"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
     </LinearLayout>
 
-
-    <!-- ===================================================== -->
     <!-- DICE -->
-    <!-- ===================================================== -->
-
     <ImageView
         android:id="@+id/imgDice"
         android:layout_width="80dp"
@@ -215,11 +260,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-
-    <!-- ===================================================== -->
     <!-- TEST BUTTON -->
-    <!-- ===================================================== -->
-
     <Button
         android:id="@+id/btnTestFinishBlue"
         android:layout_width="wrap_content"
